@@ -1,0 +1,27 @@
+server:
+  port: 8080
+
+spring:
+  rabbitmq:
+    config:
+      producer:
+        exchange: group_buy_market_exchange
+        topic_team_success:
+          routing_key: topic.team_success
+          queue: group_buy_market_queue_2_topic_team_success
+        topic_team_refund:
+          routing_key: topic.team_refund
+          queue: group_buy_market_queue_2_topic_team_refund
+        topic_order_pay_success:
+          exchange: s_pay_mall_exchange
+          routing_key: topic.order_pay_success
+          queue: s_pay_mall_queue_2_order_pay_success
+      consumer:
+        topic_team_success:
+          exchange: group_buy_market_exchange
+          routing_key: topic.team_success
+          queue: s_pay_mall_queue_2_topic_team_success
+        topic_order_pay_success:
+          exchange: s_pay_mall_exchange
+          routing_key: topic.order_pay_success
+          queue: s_pay_mall_queue_2_order_pay_success

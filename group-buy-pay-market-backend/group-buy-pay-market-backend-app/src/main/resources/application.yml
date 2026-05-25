@@ -1,0 +1,5 @@
+spring:
+  config:
+    name: group-buy-pay-market-backend-app
+  profiles:
+    active: dev

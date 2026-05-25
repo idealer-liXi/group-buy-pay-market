@@ -1,0 +1,1 @@
+package cn.idealer01.infrastructure.gateway.dto;

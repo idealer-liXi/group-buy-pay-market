@@ -1,0 +1,1 @@
+package cn.idealer01.domain.auth.adapter.repository;
