@@ -32,5 +32,8 @@ public class PayOrder {
     private BigDecimal payAmount;
     private Date createTime;
     private Date updateTime;
+    private Integer groupOrderListStatus;
+    private Integer groupOrderStatus;
+    private Date groupValidEndTime;
 
 }

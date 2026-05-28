@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.redisson.api.RedissonClient;
 
 import javax.annotation.Resource;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -24,7 +25,7 @@ public class TimeoutRefundJob {
     @Resource
     private RedissonClient redissonClient;
 
-//    @Scheduled(cron = "0 */15 * * * ?")
+    @Scheduled(cron = "0 */1 * * * ?")
     public void exec() {
         //分布式锁，避免多实例重复运行
         RLock lock = redissonClient.getLock("group_buy_market_timeout_refund_job_exec");
@@ -37,14 +38,21 @@ public class TimeoutRefundJob {
 
             log.info("超时退单定时任务开始执行");
 
-            //todo2 UserGroupBuyOrderDetailEntity被修改引起的代码变动
-            List<UserGroupBuyOrderDetailEntity> timeoutOrderList = tradeRefundOrderService.queryTimeoutUnpaidOrderList();
-            if(null == timeoutOrderList || timeoutOrderList.isEmpty()){
-                log.info("超时退单定时任务，未发现超时未支付订单");
+            List<UserGroupBuyOrderDetailEntity> timeoutOrderList = new ArrayList<>();
+            List<UserGroupBuyOrderDetailEntity> timeoutUnpaidOrderList = tradeRefundOrderService.queryTimeoutUnpaidOrderList();
+            if (null != timeoutUnpaidOrderList && !timeoutUnpaidOrderList.isEmpty()) {
+                timeoutOrderList.addAll(timeoutUnpaidOrderList);
+            }
+            List<UserGroupBuyOrderDetailEntity> timeoutPaidUnformedOrderList = tradeRefundOrderService.queryTimeoutPaidUnformedOrderList();
+            if (null != timeoutPaidUnformedOrderList && !timeoutPaidUnformedOrderList.isEmpty()) {
+                timeoutOrderList.addAll(timeoutPaidUnformedOrderList);
+            }
+            if(timeoutOrderList.isEmpty()){
+                log.info("超时退单定时任务，未发现超时订单");
                 return;
             }
 
-            log.info("超时退单定时任务，发现超时未支付订单数量：{}", timeoutOrderList.size());
+            log.info("超时退单定时任务，发现超时订单数量：{}", timeoutOrderList.size());
 
             //统计 超时关单 成功次数与失败次数
             int successCount = 0;

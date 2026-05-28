@@ -32,4 +32,6 @@ public interface IGroupBuyOrderListDao {
 
     List<GroupBuyOrderList> queryTimeoutUnpaidOrderList();
 
+    List<GroupBuyOrderList> queryTimeoutPaidUnformedOrderList();
+
 }

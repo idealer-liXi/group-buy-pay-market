@@ -50,6 +50,7 @@ public class AlipayController implements IPayService {
             PayOrderEntity payOrderEntity = orderService.createOrder(ShopCartEntity.builder()
                     .userId(userId)
                     .productId(productId)
+                    .teamId(createPayRequestDTO.getTeamId())
                     .marketTypeVO(MarketTypeVO.valueOf(marketType))
                     .activityId(activityId)
                     .build());

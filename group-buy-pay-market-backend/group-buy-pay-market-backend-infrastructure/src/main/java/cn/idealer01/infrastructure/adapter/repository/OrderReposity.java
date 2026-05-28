@@ -43,6 +43,9 @@ public class OrderReposity implements IOrderRepository {
         PayOrder orderReq = new PayOrder();
         orderReq.setUserId(shopCartEntity.getUserId());
         orderReq.setProductId(shopCartEntity.getProductId());
+        if (null != shopCartEntity.getMarketTypeVO()) {
+            orderReq.setMarketType(shopCartEntity.getMarketTypeVO().getCode());
+        }
 
         // 2. 查询到订单
         PayOrder order = orderDao.queryUnPayOrder(orderReq);

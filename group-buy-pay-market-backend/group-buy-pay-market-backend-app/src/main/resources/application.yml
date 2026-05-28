@@ -3,3 +3,9 @@ spring:
     name: group-buy-pay-market-backend-app
   profiles:
     active: dev
+
+admin:
+  auth:
+    username: admin
+    password: 123456
+    secret: admin-secret

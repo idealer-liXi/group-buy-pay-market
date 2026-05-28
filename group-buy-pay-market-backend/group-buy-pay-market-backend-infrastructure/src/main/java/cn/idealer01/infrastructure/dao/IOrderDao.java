@@ -26,6 +26,10 @@ public interface IOrderDao {
 
     PayOrder queryOrderByOrderId(String orderId);
 
+    List<PayOrder> queryPayOrderListByUserId(String userId);
+
+    List<PayOrder> queryPayOrdersByOrderIds(@Param("orderIds") List<String> orderIds);
+
     void changeOrderMarketSettlement(@Param("outTradeNoList") List<String> outTradeNoList);
 
     void changeOrderDealDone(String tradeNo);

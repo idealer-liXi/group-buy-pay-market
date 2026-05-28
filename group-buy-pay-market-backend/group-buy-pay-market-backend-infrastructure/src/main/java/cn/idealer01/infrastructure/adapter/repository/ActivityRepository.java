@@ -110,11 +110,9 @@ public class ActivityRepository extends AbstractRepository implements IActivityR
 
     @Override
     public boolean isTagCrowdRange(String tagId, String userId) {
+        if(tagId == null || tagId.isEmpty()) return true;
         RBitSet bitSet = redisService.getBitSet(tagId);
         if(!bitSet.isExists()) return true;
-        //判断是否在人群标签内
-
-        //todo redis查询不到，数据库查询，更新redis
         return bitSet.get(redisService.getIndexFromUserId(userId));
     }
 

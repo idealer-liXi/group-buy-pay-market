@@ -18,6 +18,9 @@
         <result column="pay_amount" property="payAmount"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
+        <result column="group_order_list_status" property="groupOrderListStatus"/>
+        <result column="group_order_status" property="groupOrderStatus"/>
+        <result column="group_valid_end_time" property="groupValidEndTime"/>
     </resultMap>
 
     <insert id="insert" parameterType="cn.idealer01.infrastructure.dao.po.PayOrder">
@@ -35,6 +38,9 @@
         select product_id, product_name, order_id, order_time, total_amount, status, pay_url, market_type, market_deduction_amount, pay_amount
         from pay_order
         where user_id = #{userId} and product_id = #{productId}
+        <if test="marketType != null">
+            and market_type = #{marketType}
+        </if>
         order by id desc
         limit 1
     </select>
@@ -76,5 +82,23 @@
         select user_id, product_id, product_name, order_id, order_time, total_amount, status, pay_url, market_type, market_deduction_amount, pay_amount
         from pay_order
         where order_id = #{orderId}
+    </select>
+    <select id="queryPayOrderListByUserId" parameterType="java.lang.String" resultMap="dataMap">
+        select p.user_id, p.product_id, p.product_name, p.order_id, p.order_time, p.total_amount, p.status,
+               p.pay_url, p.pay_time, p.market_type, p.market_deduction_amount, p.pay_amount,
+               l.status as group_order_list_status, g.status as group_order_status, g.valid_end_time as group_valid_end_time
+        from pay_order p
+        left join group_buy_order_list l on l.out_trade_no = p.order_id and l.user_id = p.user_id
+        left join group_buy_order g on g.team_id = l.team_id
+        where p.user_id = #{userId}
+        order by p.id desc
+    </select>
+    <select id="queryPayOrdersByOrderIds" parameterType="java.util.List" resultMap="dataMap">
+        select user_id, order_id
+        from pay_order
+        where order_id in
+        <foreach item="orderId" collection="orderIds" open="(" separator="," close=")">
+            #{orderId}
+        </foreach>
     </select>
 </mapper>

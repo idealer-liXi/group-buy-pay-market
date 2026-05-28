@@ -57,4 +57,6 @@ public interface ITradeRepository {
 
     List<UserGroupBuyOrderDetailEntity> queryTimeoutUnpaidOrderList();
 
+    List<UserGroupBuyOrderDetailEntity> queryTimeoutPaidUnformedOrderList();
+
 }

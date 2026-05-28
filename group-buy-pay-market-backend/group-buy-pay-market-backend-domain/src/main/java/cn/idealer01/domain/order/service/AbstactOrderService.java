@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.RequestBody;
 
 import java.math.BigDecimal;
+import java.util.Objects;
 
 @Service
 @Slf4j
@@ -33,6 +34,12 @@ public abstract class AbstactOrderService implements IOrderService{
     public PayOrderEntity createOrder(ShopCartEntity shopCartEntity) throws Exception {
         // 1. 查询当前用户是否存在掉单和未支付订单
         OrderEntity unpaidOrderEntity = repository.queryUnPayOrder(shopCartEntity);
+        Integer requestedMarketType = null == shopCartEntity.getMarketTypeVO() ? null : shopCartEntity.getMarketTypeVO().getCode();
+        if (null != unpaidOrderEntity && null != requestedMarketType && !Objects.equals(unpaidOrderEntity.getMarketType(), requestedMarketType)) {
+            log.info("创建订单-忽略不同营销类型未支付订单。userId:{} productId:{} orderId:{} requestedMarketType:{} existedMarketType:{}",
+                    shopCartEntity.getUserId(), shopCartEntity.getProductId(), unpaidOrderEntity.getOrderId(), requestedMarketType, unpaidOrderEntity.getMarketType());
+            unpaidOrderEntity = null;
+        }
 
         if (null != unpaidOrderEntity && OrderStatusVO.PAY_WAIT.equals(unpaidOrderEntity.getOrderStatusVO())) {
             log.info("创建订单-存在，已存在未支付订单。userId:{} productId:{} orderId:{}", shopCartEntity.getUserId(), shopCartEntity.getProductId(), unpaidOrderEntity.getOrderId());
@@ -76,7 +83,7 @@ public abstract class AbstactOrderService implements IOrderService{
         //查询商品信息
         ProductEntity productEntity = port.queryProductByProductId(shopCartEntity.getProductId());
         //封装商品信息到订单信息
-        OrderEntity orderEntity = CreateOrderAggregate.buildOrderEntity(productEntity.getProductId(), productEntity.getProductName(), shopCartEntity.getMarketTypeVO().getCode());
+        OrderEntity orderEntity = CreateOrderAggregate.buildOrderEntity(productEntity.getProductId(), productEntity.getProductName(), requestedMarketType);
         //创建集成对象
         CreateOrderAggregate orderAggregate = CreateOrderAggregate.builder()
                 .userId(shopCartEntity.getUserId())

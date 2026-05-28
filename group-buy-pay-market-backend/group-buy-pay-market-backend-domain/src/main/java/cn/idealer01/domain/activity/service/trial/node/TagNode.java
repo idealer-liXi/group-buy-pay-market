@@ -21,11 +21,10 @@ public class TagNode extends AbstractGroupBuyMarketSupport<MarketProductEntity, 
         GroupBuyActivityDiscountVO groupBuyActivityDiscountVO = dynamicContext.getGroupBuyActivityDiscountVO();
 
         String tagId = groupBuyActivityDiscountVO.getTagId();
-        //情况1：该活动没有设置人群标签，说明对所有用户开放
         if(StringUtils.isBlank(tagId)){
             dynamicContext.setVisible(true);
             dynamicContext.setEnable(true);
-            router(requestParameter, dynamicContext);
+            return router(requestParameter, dynamicContext);
         }
 
         //情况2：设置了人群标签，同时设置了TagScope（对其他人群限制）

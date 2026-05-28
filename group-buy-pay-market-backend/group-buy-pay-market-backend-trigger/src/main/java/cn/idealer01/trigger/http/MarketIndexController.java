@@ -4,6 +4,7 @@ import cn.idealer.wrench.rate.limiter.types.annotations.RateLimiterAccessInterpe
 import cn.idealer01.api.IMarketIndexService;
 import cn.idealer01.api.dto.GoodsMarketRequestDTO;
 import cn.idealer01.api.dto.GoodsMarketResponseDTO;
+import cn.idealer01.api.dto.SkuListResponseDTO;
 import cn.idealer01.api.response.Response;
 import cn.idealer01.domain.activity.model.entity.MarketProductEntity;
 import cn.idealer01.domain.activity.model.entity.TrialBalanceEntity;
@@ -11,14 +12,19 @@ import cn.idealer01.domain.activity.model.entity.UserGroupBuyOrderDetailEntity;
 import cn.idealer01.domain.activity.model.valobj.GroupBuyActivityDiscountVO;
 import cn.idealer01.domain.activity.model.valobj.TeamStatisticVO;
 import cn.idealer01.domain.activity.service.IIndexGroupBuyMarketService;
+import cn.idealer01.infrastructure.dao.ISkuDao;
+import cn.idealer01.infrastructure.dao.po.Sku;
 import cn.idealer01.types.enums.ResponseCode;
+import cn.idealer01.types.exception.AppException;
 import com.alibaba.fastjson2.JSON;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
+import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -29,6 +35,16 @@ import java.util.List;
 public class MarketIndexController implements IMarketIndexService {
     @Resource
     private IIndexGroupBuyMarketService indexGroupBuyMarketService;
+    @Resource
+    private ISkuDao skuDao;
+
+    public MarketIndexController() {
+    }
+
+    public MarketIndexController(IIndexGroupBuyMarketService indexGroupBuyMarketService, ISkuDao skuDao) {
+        this.indexGroupBuyMarketService = indexGroupBuyMarketService;
+        this.skuDao = skuDao;
+    }
     @Override
     @PostMapping("query_group_buy_market_config")
     @RateLimiterAccessInterpector(key = "userId", permitsPerSecond = 1L, blacklistCount = 1L, fallbackMethod="queryGroupBuyMarketConfigFallback")
@@ -113,7 +129,16 @@ public class MarketIndexController implements IMarketIndexService {
 
             return response;
 
-        }catch (Exception e){
+        } catch (AppException e) {
+            log.warn("查询拼团营销配置业务返回:{} goodsId:{} code:{} info:{}", goodsMarketRequestDTO.getUserId(), goodsMarketRequestDTO.getGoodsId(), e.getCode(), e.getInfo());
+            if (ResponseCode.E0002.getCode().equals(e.getCode())) {
+                return queryPlainGoodsMarketConfig(goodsMarketRequestDTO);
+            }
+            return Response.<GoodsMarketResponseDTO>builder()
+                    .code(e.getCode())
+                    .info(e.getInfo())
+                    .build();
+        } catch (Exception e){
             log.error("查询拼团营销配置失败:{} goodsId:{}", goodsMarketRequestDTO.getUserId(), goodsMarketRequestDTO.getGoodsId(), e);
             return Response.<GoodsMarketResponseDTO>builder()
                     .code(ResponseCode.UN_ERROR.getCode())
@@ -123,11 +148,75 @@ public class MarketIndexController implements IMarketIndexService {
 
     }
 
+    private Response<GoodsMarketResponseDTO> queryPlainGoodsMarketConfig(GoodsMarketRequestDTO requestDTO) {
+        Sku sku = skuDao.querySkuByGoodsId(requestDTO.getGoodsId());
+        if (null == sku || (null != sku.getStatus() && sku.getStatus() != 0)) {
+            return Response.<GoodsMarketResponseDTO>builder()
+                    .code(ResponseCode.E0002.getCode())
+                    .info(ResponseCode.E0002.getInfo())
+                    .build();
+        }
+
+        GoodsMarketResponseDTO.Goods goods = GoodsMarketResponseDTO.Goods.builder()
+                .goodsId(sku.getGoodsId())
+                .originalPrice(sku.getOriginalPrice())
+                .deductionPrice(BigDecimal.ZERO)
+                .payPrice(sku.getOriginalPrice())
+                .build();
+
+        GoodsMarketResponseDTO.TeamStatistic teamStatistic = GoodsMarketResponseDTO.TeamStatistic.builder()
+                .allTeamCount(0)
+                .allTeamCompleteCount(0)
+                .allTeamUserCount(0)
+                .build();
+
+        return Response.<GoodsMarketResponseDTO>builder()
+                .code(ResponseCode.SUCCESS.getCode())
+                .info(ResponseCode.SUCCESS.getInfo())
+                .data(GoodsMarketResponseDTO.builder()
+                        .activityId(null)
+                        .goods(goods)
+                        .teamList(Collections.emptyList())
+                        .teamStatistic(teamStatistic)
+                        .build())
+                .build();
+    }
+
     public Response<GoodsMarketResponseDTO> queryGroupBuyMarketConfigFallback(@RequestBody GoodsMarketRequestDTO requestDTO){
         log.error("查询拼团营销配置限流:{}", requestDTO.getUserId());
         return Response.<GoodsMarketResponseDTO>builder()
                 .code(ResponseCode.RATE_LIMITER.getCode())
                 .info(ResponseCode.RATE_LIMITER.getInfo())
                 .build();
+    }
+
+    @GetMapping("query_sku_list")
+    public Response<SkuListResponseDTO> querySkuList() {
+        try {
+            List<Sku> skuList = skuDao.querySkuList();
+            List<SkuListResponseDTO.SkuItem> skuItems = new ArrayList<>();
+            for (Sku sku : skuList) {
+                if (sku.getStatus() != null && sku.getStatus() != 0) {
+                    continue;
+                }
+
+                skuItems.add(SkuListResponseDTO.SkuItem.builder()
+                        .goodsId(sku.getGoodsId())
+                        .goodsName(sku.getGoodsName())
+                        .originalPrice(sku.getOriginalPrice())
+                        .build());
+            }
+            return Response.<SkuListResponseDTO>builder()
+                    .code(ResponseCode.SUCCESS.getCode())
+                    .info(ResponseCode.SUCCESS.getInfo())
+                    .data(SkuListResponseDTO.builder().skuList(skuItems).build())
+                    .build();
+        } catch (Exception e) {
+            log.error("查询商品列表失败", e);
+            return Response.<SkuListResponseDTO>builder()
+                    .code(ResponseCode.UN_ERROR.getCode())
+                    .info(ResponseCode.UN_ERROR.getInfo())
+                    .build();
+        }
     }
 }

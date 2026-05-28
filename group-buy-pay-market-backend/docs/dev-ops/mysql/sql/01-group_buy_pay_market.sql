@@ -124,6 +124,12 @@ CREATE TABLE `group_buy_activity` (
 
 LOCK TABLES `group_buy_activity` WRITE;
 /*!40000 ALTER TABLE `group_buy_activity` DISABLE KEYS */;
+
+INSERT INTO `group_buy_activity` (`activity_id`, `activity_name`, `discount_id`, `group_type`, `take_limit_count`, `target`, `valid_time`, `status`, `start_time`, `end_time`) VALUES
+(9890001, '拼团读书节-直减优惠', '1', 1, 1, 3, 15, 1, '2025-01-01 00:00:00', '2026-12-31 23:59:59'),
+(9890002, '拼团特惠-满减活动', '2', 1, 1, 5, 30, 1, '2025-01-01 00:00:00', '2026-12-31 23:59:59'),
+(9890003, '新人专享-N元购', '3', 1, 1, 2, 10, 1, '2025-01-01 00:00:00', '2026-12-31 23:59:59');
+
 /*!40000 ALTER TABLE `group_buy_activity` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -138,6 +144,7 @@ CREATE TABLE `group_buy_discount` (
   `market_plan` varchar(4) NOT NULL DEFAULT 'ZJ' COMMENT 'Market Plan',
   `market_expr` varchar(32) NOT NULL COMMENT 'Market Expr',
   `tag_id` varchar(8) DEFAULT NULL COMMENT 'Tag ID',
+  `status` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Discount Status',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Create Time',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Update Time',
   PRIMARY KEY (`id`),
@@ -146,6 +153,12 @@ CREATE TABLE `group_buy_discount` (
 
 LOCK TABLES `group_buy_discount` WRITE;
 /*!40000 ALTER TABLE `group_buy_discount` DISABLE KEYS */;
+
+INSERT INTO `group_buy_discount` (`discount_id`, `discount_name`, `discount_desc`, `discount_type`, `market_plan`, `market_expr`, `status`) VALUES
+('1', '直减10元', '拼团直减10元', 1, 'ZJ', '10', 0),
+('2', '满100减20', '满100元减20元', 1, 'MJ', '100,20', 0),
+('3', '9.9元购', 'N元购专享价9.9元', 1, 'N', '9.9', 0);
+
 /*!40000 ALTER TABLE `group_buy_discount` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -252,6 +265,13 @@ CREATE TABLE `sc_sku_activity` (
 
 LOCK TABLES `sc_sku_activity` WRITE;
 /*!40000 ALTER TABLE `sc_sku_activity` DISABLE KEYS */;
+
+INSERT INTO `sc_sku_activity` (`source`, `channel`, `activity_id`, `goods_id`) VALUES
+('s01', 'c01', 9890001, '9890001'),
+('s01', 'c01', 9890002, '9890002'),
+('s01', 'c01', 9890002, '9890003'),
+('s01', 'c01', 9890003, '9890004');
+
 /*!40000 ALTER TABLE `sc_sku_activity` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -264,6 +284,7 @@ CREATE TABLE `sku` (
   `goods_id` varchar(16) NOT NULL COMMENT 'Goods ID',
   `goods_name` varchar(128) NOT NULL COMMENT 'Goods Name',
   `original_price` decimal(10,2) NOT NULL COMMENT 'Original Price',
+  `status` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Sku Status',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Create Time',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Update Time',
   PRIMARY KEY (`id`),
@@ -272,6 +293,13 @@ CREATE TABLE `sku` (
 
 LOCK TABLES `sku` WRITE;
 /*!40000 ALTER TABLE `sku` DISABLE KEYS */;
+
+INSERT INTO `sku` (`source`, `channel`, `goods_id`, `goods_name`, `original_price`, `status`) VALUES
+('s01', 'c01', '9890001', '手写MyBatis：渐进式源码实践（全彩）', 89.90, 0),
+('s01', 'c01', '9890002', '重学Java设计模式（精装版）', 129.00, 0),
+('s01', 'c01', '9890003', 'DDD领域驱动设计实战', 109.00, 0),
+('s01', 'c01', '9890004', '大模型应用开发极简入门', 59.90, 0);
+
 /*!40000 ALTER TABLE `sku` ENABLE KEYS */;
 UNLOCK TABLES;
 

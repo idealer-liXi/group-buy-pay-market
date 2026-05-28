@@ -70,7 +70,7 @@ async function selectWeixin() {
         setCookie('loginToken', loginResult.data, 30)
         statusText.value = '登录成功，正在跳转...'
         if (timer) window.clearInterval(timer)
-        router.replace('/goods/9890001')
+        router.replace('/goods')
       }
     }, 3000)
   } catch {
@@ -87,7 +87,7 @@ async function handleFingerprintLogin() {
   try {
     const visitorId = await getFingerprint()
     setCookie('loginToken', visitorId, 20)
-    router.replace('/goods/9890001')
+    router.replace('/goods')
   } finally {
     fingerprintLoading.value = false
   }

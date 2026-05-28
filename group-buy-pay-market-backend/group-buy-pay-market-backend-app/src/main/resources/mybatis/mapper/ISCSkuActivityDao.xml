@@ -18,4 +18,27 @@
         from sc_sku_activity
         where goods_id = #{goodsId} and source = #{source} and channel = #{channel}
     </select>
+
+    <select id="querySCSkuActivityListByActivityId" resultMap="dataMap">
+        select source, channel, activity_id, goods_id
+        from sc_sku_activity
+        where activity_id = #{activityId}
+    </select>
+
+    <insert id="insertSCSkuActivity" parameterType="cn.idealer01.infrastructure.dao.po.SCSkuActivity">
+        insert into sc_sku_activity(source, channel, activity_id, goods_id)
+        values(#{source}, #{channel}, #{activityId}, #{goodsId})
+    </insert>
+
+    <update id="updateSCSkuActivity" parameterType="cn.idealer01.infrastructure.dao.po.SCSkuActivity">
+        update sc_sku_activity
+        set activity_id = #{activityId}, update_time = now()
+        where source = #{source} and channel = #{channel} and goods_id = #{goodsId}
+    </update>
+
+    <update id="updateSCSkuActivityByActivityId">
+        update sc_sku_activity
+        set goods_id = #{goodsId}, source = #{source}, channel = #{channel}, update_time = now()
+        where activity_id = #{activityId}
+    </update>
 </mapper>

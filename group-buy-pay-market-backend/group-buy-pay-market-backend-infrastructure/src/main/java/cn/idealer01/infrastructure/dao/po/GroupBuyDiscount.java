@@ -55,6 +55,11 @@ public class GroupBuyDiscount {
     private String tagId;
 
     /**
+     * 状态 0启用 1停用
+     */
+    private Integer status;
+
+    /**
      * 创建时间
      */
     private Date createTime;

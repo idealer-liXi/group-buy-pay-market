@@ -31,6 +31,8 @@ public class Sku {
     private String goodsName;
     /** 原始价格 */
     private BigDecimal originalPrice;
+    /** 状态 0可售 1停用 */
+    private Integer status;
     /** 创建时间 */
     private Date createTime;
     /** 更新时间 */

@@ -38,7 +38,7 @@
     <update id="updateOrderStatus2COMPLETE" parameterType="cn.idealer01.infrastructure.dao.po.GroupBuyOrderList">
         update group_buy_order_list
         set status = 1, out_trade_time = #{outTradeTime}, update_time = now()
-        where out_trade_no = #{outTradeNo} and user_id = #{userId}
+        where out_trade_no = #{outTradeNo} and user_id = #{userId} and status = 0
     </update>
     <update id="unpaid2Refund" parameterType="cn.idealer01.infrastructure.dao.po.GroupBuyOrderList">
         update group_buy_order_list
@@ -83,7 +83,7 @@
         from group_buy_order_list
         where
             activity_id = #{activityId} and
-                team_id in (select team_id from group_buy_order where activity_id = #{activityId} and status = 0) and
+                team_id in (select team_id from group_buy_order where activity_id = #{activityId} and status = 0 and target_count > lock_count and valid_end_time > now()) and
             user_id != #{userId} and
             status in (0, 1)
           and end_time > now()
@@ -95,6 +95,7 @@
         select team_id
         from group_buy_order_list
         where activity_id = #{activityId} and status in (0, 1)
+          and team_id in (select team_id from group_buy_order where activity_id = #{activityId} and status = 0 and target_count > lock_count and valid_end_time > now())
         group by team_id
     </select>
     <select id="queryTimeoutUnpaidOrderList" resultMap="dataMap">
@@ -106,6 +107,19 @@
           and out_trade_time is null
           and now() > end_time
             limit 10
+    </select>
+    <select id="queryTimeoutPaidUnformedOrderList" resultMap="dataMap">
+        select l.user_id, l.team_id, l.order_id, l.activity_id, l.start_time,
+               l.end_time, l.goods_id, l.source, l.channel, l.original_price, l.deduction_price,
+               l.pay_price, l.status, l.out_trade_no, l.out_trade_time, l.source, l.channel
+        from group_buy_order_list l
+        inner join group_buy_order g on g.team_id = l.team_id
+        where l.status = 1
+          and g.status = 0
+          and g.complete_count &lt; g.target_count
+          and g.valid_end_time &lt;= now()
+        order by l.id asc
+        limit 10
     </select>
 
 </mapper>

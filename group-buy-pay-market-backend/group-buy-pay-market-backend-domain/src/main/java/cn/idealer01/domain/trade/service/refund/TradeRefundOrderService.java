@@ -58,4 +58,10 @@ public class TradeRefundOrderService implements ITradeRefundOrderService {
         log.info("扫描数据，超时组队未支付订单");
         return repository.queryTimeoutUnpaidOrderList();
     }
+
+    @Override
+    public List<UserGroupBuyOrderDetailEntity> queryTimeoutPaidUnformedOrderList() {
+        log.info("扫描数据，超时已支付未成团订单");
+        return repository.queryTimeoutPaidUnformedOrderList();
+    }
 }

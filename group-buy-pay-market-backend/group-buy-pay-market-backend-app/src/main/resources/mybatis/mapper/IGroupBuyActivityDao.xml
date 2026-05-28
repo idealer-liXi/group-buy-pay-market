@@ -18,7 +18,7 @@
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
     </resultMap>
-    <select id="queryGroupBuyActivityList" resultType="cn.idealer01.infrastructure.dao.po.GroupBuyActivity">
+    <select id="queryGroupBuyActivityList" resultMap="dataMap">
         select * from group_buy_activity
     </select>
     <select id="queryValidGroupBuyActivity" parameterType="cn.idealer01.infrastructure.dao.po.GroupBuyActivity" resultMap="dataMap">
@@ -44,6 +44,33 @@
         from group_buy_activity
         where activity_id = #{activityId}
     </select>
+
+    <insert id="insertGroupBuyActivity" parameterType="cn.idealer01.infrastructure.dao.po.GroupBuyActivity">
+        insert into group_buy_activity(activity_id, activity_name, discount_id, group_type, take_limit_count, target, valid_time, status, start_time, end_time, tag_id, tag_scope)
+        values(#{activityId}, #{activityName}, #{discountId}, #{groupType}, #{takeLimitCount}, #{target}, #{validTime}, #{status}, #{startTime}, #{endTime}, #{tagId}, #{tagScope})
+    </insert>
+
+    <update id="updateGroupBuyActivity" parameterType="cn.idealer01.infrastructure.dao.po.GroupBuyActivity">
+        update group_buy_activity
+        set activity_name = #{activityName},
+            discount_id = #{discountId},
+            group_type = #{groupType},
+            take_limit_count = #{takeLimitCount},
+            target = #{target},
+            valid_time = #{validTime},
+            start_time = #{startTime},
+            end_time = #{endTime},
+            tag_id = #{tagId},
+            tag_scope = #{tagScope},
+            update_time = now()
+        where activity_id = #{activityId}
+    </update>
+
+    <update id="updateGroupBuyActivityStatus">
+        update group_buy_activity
+        set status = #{status}, update_time = now()
+        where activity_id = #{activityId}
+    </update>
 
 
 </mapper>

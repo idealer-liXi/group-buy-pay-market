@@ -1,0 +1,12 @@
+serverAddr = "110.42.207.45"
+serverPort = 7000
+
+auth.method = "token"
+auth.token = "a0dbb4bf0ae2d673970be231aa006107"
+
+[[proxies]]
+name = "gbpm-backend-http"
+type = "tcp"
+localIP = "host.docker.internal"
+localPort = 8080
+remotePort = 18080

@@ -691,4 +691,25 @@ public class TradeRepository implements ITradeRepository {
 
         return userGroupBuyOrderDetailEntities;
     }
+
+    @Override
+    public List<UserGroupBuyOrderDetailEntity> queryTimeoutPaidUnformedOrderList() {
+        List<GroupBuyOrderList> groupBuyOrderLists = groupBuyOrderListDao.queryTimeoutPaidUnformedOrderList();
+        if (null == groupBuyOrderLists || groupBuyOrderLists.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<UserGroupBuyOrderDetailEntity> result = new ArrayList<>();
+        for (GroupBuyOrderList orderList : groupBuyOrderLists) {
+            result.add(UserGroupBuyOrderDetailEntity.builder()
+                    .userId(orderList.getUserId())
+                    .teamId(orderList.getTeamId())
+                    .activityId(orderList.getActivityId())
+                    .source(orderList.getSource())
+                    .channel(orderList.getChannel())
+                    .outTradeNo(orderList.getOutTradeNo())
+                    .build());
+        }
+        return result;
+    }
 }

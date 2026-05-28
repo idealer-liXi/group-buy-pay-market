@@ -3,6 +3,8 @@ package cn.idealer01.infrastructure.adapter.port;
 import cn.idealer01.domain.order.adapt.port.IProductPort;
 import cn.idealer01.domain.order.model.entity.ProductEntity;
 import cn.idealer01.domain.order.model.valobj.MarketPayDiscountEntity;
+import cn.idealer01.infrastructure.dao.ISkuDao;
+import cn.idealer01.infrastructure.dao.po.Sku;
 import cn.idealer01.infrastructure.gateway.ProductRPC;
 import cn.idealer01.infrastructure.gateway.dto.ProductDTO;
 import lombok.extern.slf4j.Slf4j;
@@ -21,14 +23,26 @@ public class ProductPort implements IProductPort {
 
     private final ProductRPC productRPC;
     private final LocalGroupBuyMarketPort localGroupBuyMarketPort;
+    private final ISkuDao skuDao;
 
-    public ProductPort(ProductRPC productRPC, LocalGroupBuyMarketPort localGroupBuyMarketPort) {
+    public ProductPort(ProductRPC productRPC, LocalGroupBuyMarketPort localGroupBuyMarketPort, ISkuDao skuDao) {
         this.productRPC = productRPC;
         this.localGroupBuyMarketPort = localGroupBuyMarketPort;
+        this.skuDao = skuDao;
     }
 
     @Override
     public ProductEntity queryProductByProductId(String productId) {
+        Sku sku = skuDao.querySkuByGoodsId(productId);
+        if (null != sku && (null == sku.getStatus() || sku.getStatus() == 0)) {
+            return ProductEntity.builder()
+                    .productId(sku.getGoodsId())
+                    .productName(sku.getGoodsName())
+                    .productDesc(sku.getGoodsName())
+                    .price(sku.getOriginalPrice())
+                    .build();
+        }
+
         ProductDTO productDTO = productRPC.queryProductByProductId(productId);
         return ProductEntity.builder()
                 .productId(productDTO.getProductId())

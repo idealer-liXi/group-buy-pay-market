@@ -12,7 +12,9 @@
           <span class="countdown">{{ team.validTimeCountdown }}</span>
         </div>
       </div>
-      <button class="group-btn" @click="$emit('join', team.teamId)">参与拼团</button>
+      <button class="group-btn" :disabled="team.isExpired" @click="handleJoin(team)">
+        {{ team.isExpired ? '已结束' : '参与拼团' }}
+      </button>
     </div>
   </div>
 </template>
@@ -25,9 +27,17 @@ defineProps<{
   teams: TeamSummary[]
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'join', teamId: string): void
 }>()
+
+function handleJoin(team: TeamSummary) {
+  if (team.isExpired) {
+    return
+  }
+
+  emit('join', team.teamId)
+}
 </script>
 
 <style scoped>
@@ -59,6 +69,11 @@ defineEmits<{
   border-radius: 999px;
   background: #2563eb;
   color: #fff;
+}
+
+.group-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
 }
 
 .empty-tips {

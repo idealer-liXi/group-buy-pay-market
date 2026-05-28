@@ -26,7 +26,7 @@ public class NoPayNotifyOrderJob {
     @Resource
     private AlipayClient alipayClient;
 
-//    @Scheduled(cron = "0/3 * * * * ?")
+    @Scheduled(cron = "0/3 * * * * ?")
     public void exec() {
         try {
             log.info("任务；检测未接收到或未正确处理的支付回调通知");
@@ -41,8 +41,9 @@ public class NoPayNotifyOrderJob {
 
                 AlipayTradeQueryResponse alipayTradeQueryResponse = alipayClient.execute(request);
                 String code = alipayTradeQueryResponse.getCode();
+                String tradeStatus = alipayTradeQueryResponse.getTradeStatus();
                 // 判断状态码
-                if ("10000".equals(code)) {
+                if ("10000".equals(code) && ("TRADE_SUCCESS".equals(tradeStatus) || "TRADE_FINISHED".equals(tradeStatus))) {
                     orderService.changeOrderPaySuccess(orderId, alipayTradeQueryResponse.getSendPayDate());
                 }
             }

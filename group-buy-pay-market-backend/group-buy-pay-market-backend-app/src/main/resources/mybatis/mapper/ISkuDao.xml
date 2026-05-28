@@ -9,13 +9,38 @@
         <result column="goods_id" property="goodsId"/>
         <result column="goods_name" property="goodsName"/>
         <result column="original_price" property="originalPrice"/>
+        <result column="status" property="status"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
     </resultMap>
 
     <select id="querySkuByGoodsId" parameterType="java.lang.String" resultMap="dataMap">
-        select source, channel, goods_id, goods_name, original_price
+        select source, channel, goods_id, goods_name, original_price, status
         from sku
         where goods_id = #{goodsId}
     </select>
+
+    <select id="querySkuList" resultMap="dataMap">
+        select source, channel, goods_id, goods_name, original_price, status
+        from sku
+    </select>
+
+    <insert id="insertSku" parameterType="cn.idealer01.infrastructure.dao.po.Sku">
+        insert into sku(source, channel, goods_id, goods_name, original_price, status)
+        values(#{source}, #{channel}, #{goodsId}, #{goodsName}, #{originalPrice}, #{status})
+    </insert>
+
+    <update id="updateSku" parameterType="cn.idealer01.infrastructure.dao.po.Sku">
+        update sku
+        set goods_name = #{goodsName},
+            original_price = #{originalPrice},
+            update_time = now()
+        where goods_id = #{goodsId}
+    </update>
+
+    <update id="updateSkuStatus">
+        update sku
+        set status = #{status}, update_time = now()
+        where goods_id = #{goodsId}
+    </update>
 </mapper>
