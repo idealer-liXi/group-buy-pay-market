@@ -24,9 +24,9 @@ import java.util.List;
 
 @Service
 public class OrderService extends AbstactOrderService{
-    @Value("${alipay.notify_url}")
+    @Value("${alipay.notify-url}")
     private String notifyUrl;
-    @Value("${alipay.return_url}")
+    @Value("${alipay.return-url}")
     private String returnUrl;
     @Resource
     private AlipayClient alipayClient;

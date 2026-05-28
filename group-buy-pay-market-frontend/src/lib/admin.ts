@@ -1,7 +1,7 @@
 import { http } from './http'
 import { getAdminToken } from './admin-auth'
 import type { ApiResponse } from '../types/api'
-import type { AdminActivityItem, AdminDiscountItem, AdminGoodsItem, AdminLoginRequest } from '../types/admin'
+import type { AdminActivityItem, AdminDiscountItem, AdminGoodsCreatePayload, AdminGoodsCreateResponse, AdminGoodsImageResponse, AdminGoodsItem, AdminLoginRequest, AdminTagItem, AdminTagMemberItem, AdminUserItem } from '../types/admin'
 
 function adminHeaders() {
   return { 'X-Admin-Token': getAdminToken() }
@@ -17,8 +17,20 @@ export function queryAdminGoods() {
     .then((res) => res.data)
 }
 
-export function createAdminGoods(payload: Pick<AdminGoodsItem, 'goodsId' | 'goodsName' | 'originalPrice'>) {
-  return http.post<ApiResponse<void>>('/api/v1/admin/goods', payload, { headers: adminHeaders() })
+export function createAdminGoods(payload: AdminGoodsCreatePayload) {
+  return http.post<ApiResponse<AdminGoodsCreateResponse>>('/api/v1/admin/goods', payload, { headers: adminHeaders() })
+    .then((res) => res.data)
+}
+
+export function uploadAdminGoodsImage(goodsId: string, file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return http.post<ApiResponse<AdminGoodsImageResponse>>(`/api/v1/admin/goods/${goodsId}/images`, formData, { headers: adminHeaders() })
+    .then((res) => res.data)
+}
+
+export function deleteAdminGoodsImage(goodsId: string, imageId: number) {
+  return http.delete<ApiResponse<void>>(`/api/v1/admin/goods/${goodsId}/images/${imageId}`, { headers: adminHeaders() })
     .then((res) => res.data)
 }
 
@@ -69,5 +81,45 @@ export function updateAdminActivity(activityId: number, payload: Record<string, 
 
 export function updateAdminActivityStatus(activityId: number, status: number) {
   return http.put<ApiResponse<void>>(`/api/v1/admin/activities/${activityId}/status`, { status }, { headers: adminHeaders() })
+    .then((res) => res.data)
+}
+
+export function queryAdminUsers(keyword = '') {
+  return http.get<ApiResponse<{ userList: AdminUserItem[] }>>('/api/v1/admin/users', { headers: adminHeaders(), params: { keyword } })
+    .then((res) => res.data)
+}
+
+export function queryAdminUserTags(userId: string) {
+  return http.get<ApiResponse<{ tagList: AdminTagItem[] }>>(`/api/v1/admin/users/${userId}/tags`, { headers: adminHeaders() })
+    .then((res) => res.data)
+}
+
+export function queryAdminTags() {
+  return http.get<ApiResponse<{ tagList: AdminTagItem[] }>>('/api/v1/admin/tags', { headers: adminHeaders() })
+    .then((res) => res.data)
+}
+
+export function createAdminTag(payload: Pick<AdminTagItem, 'tagId' | 'tagName' | 'tagDesc'>) {
+  return http.post<ApiResponse<void>>('/api/v1/admin/tags', payload, { headers: adminHeaders() })
+    .then((res) => res.data)
+}
+
+export function updateAdminTag(tagId: string, payload: Pick<AdminTagItem, 'tagName' | 'tagDesc'>) {
+  return http.put<ApiResponse<void>>(`/api/v1/admin/tags/${tagId}`, payload, { headers: adminHeaders() })
+    .then((res) => res.data)
+}
+
+export function queryAdminTagMembers(tagId: string) {
+  return http.get<ApiResponse<{ memberList: AdminTagMemberItem[] }>>(`/api/v1/admin/tags/${tagId}/members`, { headers: adminHeaders() })
+    .then((res) => res.data)
+}
+
+export function addAdminTagMember(tagId: string, userId: string) {
+  return http.post<ApiResponse<void>>(`/api/v1/admin/tags/${tagId}/members`, { userId }, { headers: adminHeaders() })
+    .then((res) => res.data)
+}
+
+export function removeAdminTagMember(tagId: string, userId: string) {
+  return http.delete<ApiResponse<void>>(`/api/v1/admin/tags/${tagId}/members/${userId}`, { headers: adminHeaders() })
     .then((res) => res.data)
 }

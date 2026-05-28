@@ -1,15 +1,26 @@
 <template>
   <div class="goods-name-cover" :class="`goods-name-cover--${size}`">
-    <span class="goods-name-cover__title">{{ title }}</span>
+    <img v-if="imageUrl && !imageFailed" class="goods-name-cover__image" :src="imageUrl" :alt="title" @error="imageFailed = true" />
+    <span v-else class="goods-name-cover__title">{{ title }}</span>
   </div>
 </template>
 
 <script setup lang="ts">
-withDefaults(defineProps<{
+import { ref, watch } from 'vue'
+
+const props = withDefaults(defineProps<{
   title: string
   size?: 'card' | 'hero'
+  imageUrl?: string | null
 }>(), {
-  size: 'card'
+  size: 'card',
+  imageUrl: null
+})
+
+const imageFailed = ref(false)
+
+watch(() => props.imageUrl, () => {
+  imageFailed.value = false
 })
 </script>
 
@@ -48,6 +59,13 @@ withDefaults(defineProps<{
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.goods-name-cover__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .goods-name-cover--card .goods-name-cover__title {

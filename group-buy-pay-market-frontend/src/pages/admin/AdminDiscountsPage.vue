@@ -33,6 +33,15 @@
               <label>优惠表达式</label>
               <input v-model="form.marketExpr" placeholder="请输入优惠表达式" />
             </div>
+            <div class="field">
+              <label>标签</label>
+              <select v-model="form.tagId">
+                <option value="">不限制</option>
+                <option v-for="item in tagOptions" :key="item.tagId" :value="item.tagId">
+                  {{ item.tagName }} - {{ item.tagId }}
+                </option>
+              </select>
+            </div>
           </div>
           <div class="form-actions">
             <button type="submit" class="btn btn-primary">{{ editing ? '保存折扣' : '新增折扣' }}</button>
@@ -45,6 +54,7 @@
         <table v-else class="data-table">
           <thead>
             <tr>
+              <th>折扣ID</th>
               <th>折扣名称</th>
               <th>优惠方案</th>
               <th>优惠表达式</th>
@@ -54,6 +64,7 @@
           </thead>
           <tbody>
             <tr v-for="item in discountList" :key="item.discountId">
+              <td><span class="id-badge">{{ item.discountId }}</span></td>
               <td>{{ item.discountName }}</td>
               <td><code class="code-badge">{{ item.marketPlan }}</code></td>
               <td><code class="code-badge">{{ item.marketExpr }}</code></td>
@@ -79,10 +90,11 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import AdminLayout from '../../components/admin/AdminLayout.vue'
-import { createAdminDiscount, queryAdminDiscounts, updateAdminDiscount, updateAdminDiscountStatus } from '../../lib/admin'
-import type { AdminDiscountItem } from '../../types/admin'
+import { createAdminDiscount, queryAdminDiscounts, queryAdminTags, updateAdminDiscount, updateAdminDiscountStatus } from '../../lib/admin'
+import type { AdminDiscountItem, AdminTagItem } from '../../types/admin'
 
 const discountList = ref<AdminDiscountItem[]>([])
+const tagOptions = ref<AdminTagItem[]>([])
 const loading = ref(true)
 const editing = ref(false)
 const form = ref({ discountId: '', discountName: '', discountDesc: '', discountType: 1, marketPlan: 'ZJ', marketExpr: '', tagId: '' })
@@ -93,6 +105,13 @@ async function loadDiscounts() {
     discountList.value = result.data.discountList
   }
   loading.value = false
+}
+
+async function loadTags() {
+  const result = await queryAdminTags()
+  if (result.code === '0000') {
+    tagOptions.value = result.data.tagList
+  }
 }
 
 function editDiscount(item: AdminDiscountItem) {
@@ -129,7 +148,10 @@ async function toggleDiscountStatus(item: AdminDiscountItem) {
   await loadDiscounts()
 }
 
-onMounted(loadDiscounts)
+onMounted(() => {
+  loadDiscounts()
+  loadTags()
+})
 </script>
 
 <style scoped>
@@ -326,6 +348,16 @@ onMounted(loadDiscounts)
   font-size: 13px;
   color: #475569;
   font-family: monospace;
+}
+
+.id-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-family: monospace;
+  font-size: 13px;
 }
 
 .status-tag {

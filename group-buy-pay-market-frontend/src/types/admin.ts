@@ -3,12 +3,31 @@ export type AdminLoginRequest = {
   password: string
 }
 
+export type AdminGoodsImageItem = {
+  imageId: number
+  imageUrl: string
+  sortOrder: number
+}
+
 export type AdminGoodsItem = {
   goodsId: string
   goodsName: string
   originalPrice: number
   status: number
+  coverImageUrl?: string | null
+  imageList?: AdminGoodsImageItem[]
 }
+
+export type AdminGoodsCreatePayload = {
+  goodsName: string
+  originalPrice: number
+}
+
+export type AdminGoodsCreateResponse = {
+  goodsId: string
+}
+
+export type AdminGoodsImageResponse = AdminGoodsImageItem
 
 export type AdminDiscountItem = {
   discountId: string
@@ -35,4 +54,27 @@ export type AdminActivityItem = {
   endTime: string
   tagId?: string | null
   tagScope?: string | null
+}
+
+export type AdminUserItem = {
+  userId: string
+  displayName: string
+  loginType: string
+  status: number
+  firstLoginTime?: string | null
+  lastLoginTime?: string | null
+}
+
+export type AdminTagItem = {
+  tagId: string
+  tagName: string
+  tagDesc: string
+  statistics: number
+}
+
+export type AdminTagMemberItem = {
+  userId: string
+  displayName: string
+  loginType: string
+  status: number
 }

@@ -15,4 +15,29 @@
         values (#{tagId}, #{userId}, now(), now())
     </insert>
 
+    <select id="queryCrowdTagsDetailListByTagId" resultMap="dataMap">
+        select id, tag_id, user_id, create_time, update_time
+        from crowd_tags_detail
+        where tag_id = #{tagId}
+        order by id desc
+    </select>
+
+    <select id="queryCrowdTagsDetailListByUserId" resultMap="dataMap">
+        select id, tag_id, user_id, create_time, update_time
+        from crowd_tags_detail
+        where user_id = #{userId}
+        order by id desc
+    </select>
+
+    <select id="countCrowdTagsDetailByTagId" resultType="int">
+        select count(1)
+        from crowd_tags_detail
+        where tag_id = #{tagId}
+    </select>
+
+    <delete id="deleteCrowdTagsUserId">
+        delete from crowd_tags_detail
+        where tag_id = #{tagId} and user_id = #{userId}
+    </delete>
+
 </mapper>

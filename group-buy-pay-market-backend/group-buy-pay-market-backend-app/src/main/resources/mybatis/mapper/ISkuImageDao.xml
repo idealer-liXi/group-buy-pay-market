@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="cn.idealer01.infrastructure.dao.ISkuImageDao">
+
+    <resultMap id="dataMap" type="cn.idealer01.infrastructure.dao.po.SkuImage">
+        <id column="id" property="id"/>
+        <result column="goods_id" property="goodsId"/>
+        <result column="image_url" property="imageUrl"/>
+        <result column="oss_object_key" property="ossObjectKey"/>
+        <result column="sort_order" property="sortOrder"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <select id="querySkuImagesByGoodsId" parameterType="java.lang.String" resultMap="dataMap">
+        select id, goods_id, image_url, oss_object_key, sort_order, create_time, update_time
+        from sku_image
+        where goods_id = #{goodsId}
+        order by sort_order asc, id asc
+    </select>
+
+    <select id="querySkuImagesByGoodsIds" resultMap="dataMap">
+        select id, goods_id, image_url, oss_object_key, sort_order, create_time, update_time
+        from sku_image
+        where goods_id in
+        <foreach collection="goodsIds" item="goodsId" open="(" separator="," close=")">
+            #{goodsId}
+        </foreach>
+        order by goods_id asc, sort_order asc, id asc
+    </select>
+
+    <select id="querySkuImageById" resultMap="dataMap">
+        select id, goods_id, image_url, oss_object_key, sort_order, create_time, update_time
+        from sku_image
+        where goods_id = #{goodsId} and id = #{id}
+    </select>
+
+    <select id="queryMaxSortOrder" parameterType="java.lang.String" resultType="java.lang.Integer">
+        select max(sort_order)
+        from sku_image
+        where goods_id = #{goodsId}
+    </select>
+
+    <insert id="insertSkuImage" parameterType="cn.idealer01.infrastructure.dao.po.SkuImage" useGeneratedKeys="true" keyProperty="id">
+        insert into sku_image(goods_id, image_url, oss_object_key, sort_order)
+        values(#{goodsId}, #{imageUrl}, #{ossObjectKey}, #{sortOrder})
+    </insert>
+
+    <delete id="deleteSkuImage">
+        delete from sku_image
+        where goods_id = #{goodsId} and id = #{id}
+    </delete>
+</mapper>

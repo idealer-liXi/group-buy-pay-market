@@ -67,6 +67,36 @@ public class AdminActivityControllerTest {
     }
 
     @Test
+    public void createActivity_writesOneBindingForEachCommaSeparatedGoodsId() {
+        IGroupBuyActivityDao activityDao = mock(IGroupBuyActivityDao.class);
+        ISkuDao skuDao = mock(ISkuDao.class);
+        IGroupBuyDiscountDao discountDao = mock(IGroupBuyDiscountDao.class);
+        ISCSkuActivityDao scSkuActivityDao = mock(ISCSkuActivityDao.class);
+        when(skuDao.querySkuByGoodsId("9890001")).thenReturn(Sku.builder().goodsId("9890001").status(0).build());
+        when(skuDao.querySkuByGoodsId("9890002")).thenReturn(Sku.builder().goodsId("9890002").status(0).build());
+        when(discountDao.queryGroupBuyActivityDiscountByDiscountId("1")).thenReturn(GroupBuyDiscount.builder().discountId(1).status(0).build());
+        AdminActivityController controller = new AdminActivityController(activityDao, skuDao, discountDao, scSkuActivityDao);
+
+        AdminActivityUpsertRequestDTO request = AdminActivityUpsertRequestDTO.builder()
+                .activityId(100999L)
+                .activityName("测试活动")
+                .goodsId("9890001,9890002")
+                .discountId("1")
+                .groupType(1)
+                .takeLimitCount(1)
+                .target(3)
+                .validTime(15)
+                .startTime(new Date())
+                .endTime(new Date(System.currentTimeMillis() + 3600000))
+                .build();
+
+        Response<Void> response = controller.createActivity(request);
+
+        assertEquals("0000", response.getCode());
+        verify(scSkuActivityDao, times(2)).insertSCSkuActivity(any());
+    }
+
+    @Test
     public void createActivity_generatesActivityId_whenRequestOmitsIt() {
         IGroupBuyActivityDao activityDao = mock(IGroupBuyActivityDao.class);
         ISkuDao skuDao = mock(ISkuDao.class);
@@ -218,5 +248,41 @@ public class AdminActivityControllerTest {
 
         verify(scSkuActivityDao, times(1)).updateSCSkuActivityByActivityId(eq(100123L), eq("9890002"), eq("s01"), eq("c01"));
         assertEquals("0000", response.getCode());
+    }
+
+    @Test
+    public void updateActivity_replacesBindingsWhenGoodsIdContainsMultipleIds() {
+        IGroupBuyActivityDao activityDao = mock(IGroupBuyActivityDao.class);
+        ISkuDao skuDao = mock(ISkuDao.class);
+        IGroupBuyDiscountDao discountDao = mock(IGroupBuyDiscountDao.class);
+        ISCSkuActivityDao scSkuActivityDao = mock(ISCSkuActivityDao.class);
+        when(activityDao.queryGroupBuyActivityByActivityId(100123L)).thenReturn(
+                GroupBuyActivity.builder().activityId(100123L).status(0).build()
+        );
+        when(skuDao.querySkuByGoodsId("9890001")).thenReturn(Sku.builder().goodsId("9890001").status(0).build());
+        when(skuDao.querySkuByGoodsId("9890002")).thenReturn(Sku.builder().goodsId("9890002").status(0).build());
+        when(discountDao.queryGroupBuyActivityDiscountByDiscountId("1")).thenReturn(GroupBuyDiscount.builder().discountId(1).status(0).build());
+        when(scSkuActivityDao.querySCSkuActivityBySCGoodsId(any())).thenReturn(
+                SCSkuActivity.builder().activityId(100123L).build()
+        );
+
+        AdminActivityController controller = new AdminActivityController(activityDao, skuDao, discountDao, scSkuActivityDao);
+        AdminActivityUpsertRequestDTO request = AdminActivityUpsertRequestDTO.builder()
+                .activityName("测试活动")
+                .goodsId("9890001,9890002")
+                .discountId("1")
+                .groupType(1)
+                .takeLimitCount(1)
+                .target(3)
+                .validTime(15)
+                .startTime(new Date())
+                .endTime(new Date(System.currentTimeMillis() + 3600000))
+                .build();
+
+        Response<Void> response = controller.updateActivity(100123L, request);
+
+        assertEquals("0000", response.getCode());
+        verify(scSkuActivityDao, times(1)).deleteSCSkuActivityByActivityId(100123L);
+        verify(scSkuActivityDao, times(2)).insertSCSkuActivity(any());
     }
 }

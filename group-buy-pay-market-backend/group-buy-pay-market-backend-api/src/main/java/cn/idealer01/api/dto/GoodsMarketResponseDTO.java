@@ -23,6 +23,10 @@ public class GoodsMarketResponseDTO {
     private List<Team> teamList;
     //组队统计
     private TeamStatistic teamStatistic;
+    // 拼团活动是否对当前用户可见
+    private Boolean isVisible;
+    // 当前用户是否可参与拼团
+    private Boolean isEnable;
 
     /**
      * 商品信息
@@ -34,12 +38,18 @@ public class GoodsMarketResponseDTO {
     public static class Goods {
         // 商品ID
         private String goodsId;
+        // 商品名称
+        private String goodsName;
         // 原始价格
         private BigDecimal originalPrice;
         // 折扣金额
         private BigDecimal deductionPrice;
         // 支付价格
         private BigDecimal payPrice;
+        // 商品封面图
+        private String coverImageUrl;
+        // 商品图片列表
+        private List<String> imageUrls;
     }
 
     /**

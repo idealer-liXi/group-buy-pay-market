@@ -7,6 +7,11 @@ export type SimpleResponse<T> = {
   data: T
 }
 
+export type FingerprintLoginResponse = {
+  userId: string
+  displayName: string
+}
+
 export async function getFingerprint(): Promise<string> {
   const fp = await FingerprintJS.load()
   const result = await fp.get()
@@ -24,5 +29,10 @@ export async function checkLogin(ticket: string, sceneStr: string) {
   const { data } = await http.get<SimpleResponse<string>>('/api/v1/login/check_login_scene', {
     params: { ticket, sceneStr }
   })
+  return data
+}
+
+export async function fingerprintLogin(visitorId: string) {
+  const { data } = await http.post<SimpleResponse<FingerprintLoginResponse>>('/api/v1/login/fingerprint', { visitorId })
   return data
 }

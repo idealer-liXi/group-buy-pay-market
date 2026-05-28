@@ -24,5 +24,6 @@ public class SkuListResponseDTO {
         private String goodsId;
         private String goodsName;
         private BigDecimal originalPrice;
+        private String coverImageUrl;
     }
 }

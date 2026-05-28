@@ -13,7 +13,7 @@
         class="goods-card"
         @click="goToDetail(item.goodsId)"
       >
-        <GoodsNameCover :title="item.goodsName" size="card" />
+        <GoodsNameCover :title="item.goodsName" :image-url="item.coverImageUrl" size="card" />
         <div class="goods-info">
           <p class="goods-name">{{ item.goodsName }}</p>
           <p class="goods-price">

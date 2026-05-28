@@ -42,6 +42,23 @@ LOCK TABLES `pay_order` WRITE;
 /*!40000 ALTER TABLE `pay_order` ENABLE KEYS */;
 UNLOCK TABLES;
 
+DROP TABLE IF EXISTS `market_user`;
+
+CREATE TABLE `market_user` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'Auto ID',
+  `user_id` varchar(64) NOT NULL COMMENT 'User ID',
+  `login_type` varchar(16) NOT NULL DEFAULT 'FINGERPRINT' COMMENT 'Login Type',
+  `display_name` varchar(64) NOT NULL COMMENT 'Display Name',
+  `status` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Status',
+  `first_login_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'First Login Time',
+  `last_login_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Last Login Time',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Create Time',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Update Time',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_user_id` (`user_id`),
+  KEY `idx_last_login_time` (`last_login_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Market User';
+
 DROP TABLE IF EXISTS `crowd_tags`;
 
 CREATE TABLE `crowd_tags` (
@@ -66,7 +83,7 @@ DROP TABLE IF EXISTS `crowd_tags_detail`;
 CREATE TABLE `crowd_tags_detail` (
   `id` int unsigned NOT NULL AUTO_INCREMENT COMMENT 'Auto ID',
   `tag_id` varchar(32) NOT NULL COMMENT 'Tag ID',
-  `user_id` varchar(16) NOT NULL COMMENT 'User ID',
+  `user_id` varchar(64) NOT NULL COMMENT 'User ID',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Create Time',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Update Time',
   PRIMARY KEY (`id`),
@@ -273,6 +290,25 @@ INSERT INTO `sc_sku_activity` (`source`, `channel`, `activity_id`, `goods_id`) V
 ('s01', 'c01', 9890003, '9890004');
 
 /*!40000 ALTER TABLE `sc_sku_activity` ENABLE KEYS */;
+UNLOCK TABLES;
+
+DROP TABLE IF EXISTS `sku_image`;
+
+CREATE TABLE `sku_image` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'Auto ID',
+  `goods_id` varchar(16) NOT NULL COMMENT 'Goods ID',
+  `image_url` varchar(512) NOT NULL COMMENT 'Public Image URL',
+  `oss_object_key` varchar(512) NOT NULL COMMENT 'OSS Object Key',
+  `sort_order` int NOT NULL COMMENT 'Display Order',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Create Time',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Update Time',
+  PRIMARY KEY (`id`),
+  KEY `idx_goods_sort` (`goods_id`,`sort_order`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Sku Images';
+
+LOCK TABLES `sku_image` WRITE;
+/*!40000 ALTER TABLE `sku_image` DISABLE KEYS */;
+/*!40000 ALTER TABLE `sku_image` ENABLE KEYS */;
 UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `sku`;

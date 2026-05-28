@@ -24,5 +24,17 @@ public class AdminGoodsListResponseDTO {
         private String goodsName;
         private BigDecimal originalPrice;
         private Integer status;
+        private String coverImageUrl;
+        private List<GoodsImageItem> imageList;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class GoodsImageItem {
+        private Long imageId;
+        private String imageUrl;
+        private Integer sortOrder;
     }
 }

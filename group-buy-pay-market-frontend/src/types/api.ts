@@ -15,9 +15,12 @@ export type GoodsMarketResponse = {
   activityId: number | null
   goods: {
     goodsId: string
+    goodsName?: string | null
     originalPrice: number
     deductionPrice: number
     payPrice: number
+    coverImageUrl?: string | null
+    imageUrls?: string[]
   }
   teamList: TeamItem[]
   teamStatistic: {
@@ -25,6 +28,8 @@ export type GoodsMarketResponse = {
     allTeamCompleteCount: number
     allTeamUserCount: number
   }
+  isVisible?: boolean
+  isEnable?: boolean
 }
 
 export type TeamItem = {
@@ -49,6 +54,7 @@ export type SkuItem = {
   goodsId: string
   goodsName: string
   originalPrice: number
+  coverImageUrl?: string | null
 }
 
 export type SkuListResponse = {

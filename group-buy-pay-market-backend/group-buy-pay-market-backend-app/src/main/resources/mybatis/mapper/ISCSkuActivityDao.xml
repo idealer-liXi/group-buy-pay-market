@@ -41,4 +41,9 @@
         set goods_id = #{goodsId}, source = #{source}, channel = #{channel}, update_time = now()
         where activity_id = #{activityId}
     </update>
+
+    <delete id="deleteSCSkuActivityByActivityId" parameterType="java.lang.Long">
+        delete from sc_sku_activity
+        where activity_id = #{activityId}
+    </delete>
 </mapper>

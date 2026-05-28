@@ -40,7 +40,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import QrLoginCard from '../components/QrLoginCard.vue'
 import FingerprintLoginCard from '../components/FingerprintLoginCard.vue'
-import { checkLogin, fetchWeixinQrCodeTicket, getFingerprint } from '../lib/auth'
+import { checkLogin, fetchWeixinQrCodeTicket, fingerprintLogin, getFingerprint } from '../lib/auth'
 import { setCookie } from '../lib/cookie'
 
 const router = useRouter()
@@ -86,7 +86,11 @@ async function handleFingerprintLogin() {
   fingerprintLoading.value = true
   try {
     const visitorId = await getFingerprint()
-    setCookie('loginToken', visitorId, 20)
+    const result = await fingerprintLogin(visitorId)
+    if (result.code !== '0000') {
+      return
+    }
+    setCookie('loginToken', result.data.userId, 20)
     router.replace('/goods')
   } finally {
     fingerprintLoading.value = false

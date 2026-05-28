@@ -7,13 +7,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "alipay", ignoreInvalidFields = true)
 public class AliPayConfigProperties {
 
-    private String app_id;
-    private String merchant_private_key;
-    private String alipay_public_key;
-    private String notify_url;
-    private String return_url;
+    private String appId;
+    private String merchantPrivateKey;
+    private String alipayPublicKey;
+    private String notifyUrl;
+    private String returnUrl;
     private String gatewayUrl;
-    private String sign_type = "RSA2";
+    private String signType = "RSA2";
     private String charset = "utf-8";
     private String format = "json";
 }

@@ -12,6 +12,7 @@ import cn.idealer01.infrastructure.dao.po.GroupBuyActivity;
 import cn.idealer01.infrastructure.dao.po.GroupBuyDiscount;
 import cn.idealer01.infrastructure.dao.po.SCSkuActivity;
 import cn.idealer01.types.enums.ResponseCode;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -82,22 +84,16 @@ public class AdminActivityController {
             return Response.<Void>builder().code(ResponseCode.ILLEGAL_PARAMETER.getCode()).info(ResponseCode.ILLEGAL_PARAMETER.getInfo()).build();
         }
 
-        if (skuDao.querySkuByGoodsId(request.getGoodsId()) == null || (skuDao.querySkuByGoodsId(request.getGoodsId()).getStatus() != null && skuDao.querySkuByGoodsId(request.getGoodsId()).getStatus() == 1)) {
-            return Response.<Void>builder().code(ResponseCode.ILLEGAL_PARAMETER.getCode()).info("商品不存在或已停用").build();
-        }
+        List<String> goodsIds = parseGoodsIds(request.getGoodsId());
 
         GroupBuyDiscount discount = discountDao.queryGroupBuyActivityDiscountByDiscountId(request.getDiscountId());
         if (discount == null || (discount.getStatus() != null && discount.getStatus() == 1)) {
             return Response.<Void>builder().code(ResponseCode.ILLEGAL_PARAMETER.getCode()).info("折扣不存在或已停用").build();
         }
 
-        SCSkuActivity existingBinding = scSkuActivityDao.querySCSkuActivityBySCGoodsId(SCSkuActivity.builder()
-                .source("s01")
-                .channel("c01")
-                .goodsId(request.getGoodsId())
-                .build());
-        if (existingBinding != null) {
-            return Response.<Void>builder().code(ResponseCode.ILLEGAL_PARAMETER.getCode()).info("商品已绑定其他活动").build();
+        Response<Void> goodsValidation = validateGoodsIds(goodsIds, null);
+        if (goodsValidation != null) {
+            return goodsValidation;
         }
 
         Long activityId = request.getActivityId() == null
@@ -124,12 +120,7 @@ public class AdminActivityController {
                 .tagScope(request.getTagScope())
                 .build());
 
-        scSkuActivityDao.insertSCSkuActivity(SCSkuActivity.builder()
-                .source("s01")
-                .channel("c01")
-                .goodsId(request.getGoodsId())
-                .activityId(activityId)
-                .build());
+        insertGoodsBindings(activityId, goodsIds);
 
         return Response.<Void>builder().code(ResponseCode.SUCCESS.getCode()).info(ResponseCode.SUCCESS.getInfo()).build();
     }
@@ -148,22 +139,16 @@ public class AdminActivityController {
             return Response.<Void>builder().code(ResponseCode.ILLEGAL_PARAMETER.getCode()).info(ResponseCode.ILLEGAL_PARAMETER.getInfo()).build();
         }
 
-        if (skuDao.querySkuByGoodsId(request.getGoodsId()) == null || (skuDao.querySkuByGoodsId(request.getGoodsId()).getStatus() != null && skuDao.querySkuByGoodsId(request.getGoodsId()).getStatus() == 1)) {
-            return Response.<Void>builder().code(ResponseCode.ILLEGAL_PARAMETER.getCode()).info("商品不存在或已停用").build();
-        }
+        List<String> goodsIds = parseGoodsIds(request.getGoodsId());
 
         GroupBuyDiscount discount = discountDao.queryGroupBuyActivityDiscountByDiscountId(request.getDiscountId());
         if (discount == null || (discount.getStatus() != null && discount.getStatus() == 1)) {
             return Response.<Void>builder().code(ResponseCode.ILLEGAL_PARAMETER.getCode()).info("折扣不存在或已停用").build();
         }
 
-        SCSkuActivity existingBinding = scSkuActivityDao.querySCSkuActivityBySCGoodsId(SCSkuActivity.builder()
-                .source("s01")
-                .channel("c01")
-                .goodsId(request.getGoodsId())
-                .build());
-        if (existingBinding != null && !activityId.equals(existingBinding.getActivityId())) {
-            return Response.<Void>builder().code(ResponseCode.ILLEGAL_PARAMETER.getCode()).info("商品已绑定其他活动").build();
+        Response<Void> goodsValidation = validateGoodsIds(goodsIds, activityId);
+        if (goodsValidation != null) {
+            return goodsValidation;
         }
 
         activityDao.updateGroupBuyActivity(GroupBuyActivity.builder()
@@ -180,7 +165,12 @@ public class AdminActivityController {
                 .tagScope(request.getTagScope())
                 .build());
 
-        scSkuActivityDao.updateSCSkuActivityByActivityId(activityId, request.getGoodsId(), "s01", "c01");
+        if (goodsIds.size() == 1) {
+            scSkuActivityDao.updateSCSkuActivityByActivityId(activityId, goodsIds.get(0), "s01", "c01");
+        } else {
+            scSkuActivityDao.deleteSCSkuActivityByActivityId(activityId);
+            insertGoodsBindings(activityId, goodsIds);
+        }
 
         return Response.<Void>builder().code(ResponseCode.SUCCESS.getCode()).info(ResponseCode.SUCCESS.getInfo()).build();
     }
@@ -189,5 +179,46 @@ public class AdminActivityController {
     public Response<Void> updateStatus(@PathVariable Long activityId, @RequestBody AdminStatusUpdateRequestDTO request) {
         activityDao.updateGroupBuyActivityStatus(activityId, request.getStatus());
         return Response.<Void>builder().code(ResponseCode.SUCCESS.getCode()).info(ResponseCode.SUCCESS.getInfo()).build();
+    }
+
+    private List<String> parseGoodsIds(String goodsId) {
+        return Arrays.stream(StringUtils.split(StringUtils.defaultString(goodsId), ','))
+                .map(String::trim)
+                .filter(StringUtils::isNotBlank)
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
+    private Response<Void> validateGoodsIds(List<String> goodsIds, Long currentActivityId) {
+        if (goodsIds.isEmpty()) {
+            return Response.<Void>builder().code(ResponseCode.ILLEGAL_PARAMETER.getCode()).info("商品不存在或已停用").build();
+        }
+
+        for (String goodsId : goodsIds) {
+            if (skuDao.querySkuByGoodsId(goodsId) == null || (skuDao.querySkuByGoodsId(goodsId).getStatus() != null && skuDao.querySkuByGoodsId(goodsId).getStatus() == 1)) {
+                return Response.<Void>builder().code(ResponseCode.ILLEGAL_PARAMETER.getCode()).info("商品不存在或已停用").build();
+            }
+
+            SCSkuActivity existingBinding = scSkuActivityDao.querySCSkuActivityBySCGoodsId(SCSkuActivity.builder()
+                    .source("s01")
+                    .channel("c01")
+                    .goodsId(goodsId)
+                    .build());
+            if (existingBinding != null && (currentActivityId == null || !currentActivityId.equals(existingBinding.getActivityId()))) {
+                return Response.<Void>builder().code(ResponseCode.ILLEGAL_PARAMETER.getCode()).info("商品已绑定其他活动").build();
+            }
+        }
+        return null;
+    }
+
+    private void insertGoodsBindings(Long activityId, List<String> goodsIds) {
+        for (String goodsId : goodsIds) {
+            scSkuActivityDao.insertSCSkuActivity(SCSkuActivity.builder()
+                    .source("s01")
+                    .channel("c01")
+                    .goodsId(goodsId)
+                    .activityId(activityId)
+                    .build());
+        }
     }
 }

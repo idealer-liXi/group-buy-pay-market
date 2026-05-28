@@ -16,6 +16,12 @@ spring:
           exchange: s_pay_mall_exchange
           routing_key: topic.order_pay_success
           queue: s_pay_mall_queue_2_order_pay_success
+
+admin:
+  auth:
+    username: ${ADMIN_AUTH_USERNAME:admin}
+    password: ${ADMIN_AUTH_PASSWORD:123456}
+    secret: ${ADMIN_AUTH_SECRET:admin-secret}
       consumer:
         topic_team_success:
           exchange: group_buy_market_exchange

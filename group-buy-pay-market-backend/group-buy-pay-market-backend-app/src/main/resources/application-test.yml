@@ -2,6 +2,10 @@ server:
   port: 8081
 
 spring:
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 25MB
   rabbitmq:
     host: localhost
     port: 15673
@@ -35,5 +39,20 @@ redis:
     config:
       enabled: false
 
+admin:
+  auth:
+    username: admin
+    password: 123456
+    secret: admin-secret
+
 alipay:
   enabled: false
+
+oss:
+  aliyun:
+    endpoint: ${ALIYUN_OSS_ENDPOINT:}
+    bucket-name: ${ALIYUN_OSS_BUCKET_NAME:}
+    access-key-id: ${ALIYUN_OSS_ACCESS_KEY_ID:}
+    access-key-secret: ${ALIYUN_OSS_ACCESS_KEY_SECRET:}
+    dir-prefix: ${ALIYUN_OSS_DIR_PREFIX:goods/images}
+    public-base-url: ${ALIYUN_OSS_PUBLIC_BASE_URL:}

@@ -17,4 +17,6 @@ public interface ISCSkuActivityDao {
     int updateSCSkuActivity(SCSkuActivity scSkuActivity);
 
     int updateSCSkuActivityByActivityId(@Param("activityId") Long activityId, @Param("goodsId") String goodsId, @Param("source") String source, @Param("channel") String channel);
+
+    int deleteSCSkuActivityByActivityId(Long activityId);
 }

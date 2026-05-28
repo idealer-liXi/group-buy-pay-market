@@ -10,6 +10,8 @@ const AdminLoginPage = () => import('../pages/admin/AdminLoginPage.vue')
 const AdminGoodsPage = () => import('../pages/admin/AdminGoodsPage.vue')
 const AdminDiscountsPage = () => import('../pages/admin/AdminDiscountsPage.vue')
 const AdminActivitiesPage = () => import('../pages/admin/AdminActivitiesPage.vue')
+const AdminUsersPage = () => import('../pages/admin/AdminUsersPage.vue')
+const AdminTagsPage = () => import('../pages/admin/AdminTagsPage.vue')
 
 const router = createRouter({
   history: createWebHistory(),
@@ -23,7 +25,9 @@ const router = createRouter({
     { path: '/admin', redirect: '/admin/goods' },
     { path: '/admin/goods', component: AdminGoodsPage },
     { path: '/admin/discounts', component: AdminDiscountsPage },
-    { path: '/admin/activities', component: AdminActivitiesPage }
+    { path: '/admin/activities', component: AdminActivitiesPage },
+    { path: '/admin/users', component: AdminUsersPage },
+    { path: '/admin/tags', component: AdminTagsPage }
   ]
 })
 

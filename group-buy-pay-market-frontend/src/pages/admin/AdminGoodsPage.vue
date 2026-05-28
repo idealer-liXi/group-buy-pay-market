@@ -26,6 +26,17 @@
             <button v-if="editing" type="button" class="btn btn-ghost" @click="cancelEdit">取消</button>
           </div>
         </form>
+        <div v-if="editing && selectedGoods" class="image-manager">
+          <h3>商品图片</h3>
+          <input type="file" accept="image/jpeg,image/png,image/webp" :disabled="imageUploading" @change="handleImageUpload" />
+          <div class="image-list">
+            <div v-for="image in selectedGoods.imageList ?? []" :key="image.imageId" class="image-item">
+              <img :src="image.imageUrl" :alt="selectedGoods.goodsName" />
+              <button type="button" class="btn-link link-danger" :data-test="`delete-image-${image.imageId}`" @click="deleteImage(image)">删除</button>
+            </div>
+            <div v-if="(selectedGoods.imageList ?? []).length === 0" class="empty-state">暂无图片</div>
+          </div>
+        </div>
       </div>
       <div class="card">
         <div v-if="loading" class="empty-state">加载中...</div>
@@ -33,6 +44,7 @@
         <table v-else class="data-table">
           <thead>
             <tr>
+              <th>封面</th>
               <th>商品ID</th>
               <th>商品名</th>
               <th>原价</th>
@@ -42,6 +54,10 @@
           </thead>
           <tbody>
             <tr v-for="item in goodsList" :key="item.goodsId">
+              <td>
+                <img v-if="item.coverImageUrl" class="cover-thumb" :src="item.coverImageUrl" :alt="item.goodsName" />
+                <span v-else class="cover-empty">无图</span>
+              </td>
               <td><span class="id-badge">{{ item.goodsId }}</span></td>
               <td>{{ item.goodsName }}</td>
               <td class="price">¥{{ item.originalPrice }}</td>
@@ -51,7 +67,7 @@
                 </span>
               </td>
               <td class="actions">
-                <button class="btn-link" @click="editGoods(item)">编辑</button>
+                <button class="btn-link" :data-test="`edit-goods-${item.goodsId}`" @click="editGoods(item)">编辑</button>
                 <button :class="['btn-link', item.status === 0 ? 'link-danger' : 'link-success']" @click="toggleStatus(item)">
                   {{ item.status === 0 ? '停用' : '启用' }}
                 </button>
@@ -67,14 +83,16 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import AdminLayout from '../../components/admin/AdminLayout.vue'
-import { createAdminGoods, queryAdminGoods, updateAdminGoods, updateAdminGoodsStatus } from '../../lib/admin'
-import type { AdminGoodsItem } from '../../types/admin'
+import { createAdminGoods, deleteAdminGoodsImage, queryAdminGoods, updateAdminGoods, updateAdminGoodsStatus, uploadAdminGoodsImage } from '../../lib/admin'
+import type { AdminGoodsImageItem, AdminGoodsItem } from '../../types/admin'
 
 const goodsList = ref<AdminGoodsItem[]>([])
 const loading = ref(true)
 const error = ref('')
 const editing = ref(false)
 const form = ref({ goodsId: '', goodsName: '', originalPrice: 0 })
+const selectedGoods = ref<AdminGoodsItem | null>(null)
+const imageUploading = ref(false)
 
 async function loadGoods() {
   loading.value = true
@@ -94,29 +112,70 @@ async function loadGoods() {
 
 function editGoods(item: AdminGoodsItem) {
   editing.value = true
+  selectedGoods.value = item
   form.value = { goodsId: item.goodsId, goodsName: item.goodsName, originalPrice: item.originalPrice }
 }
 
 function cancelEdit() {
   editing.value = false
+  selectedGoods.value = null
   form.value = { goodsId: '', goodsName: '', originalPrice: 0 }
 }
 
 async function submitForm() {
   if (editing.value) {
     await updateAdminGoods(form.value.goodsId, { goodsName: form.value.goodsName, originalPrice: form.value.originalPrice })
+    editing.value = false
+    selectedGoods.value = null
+    form.value = { goodsId: '', goodsName: '', originalPrice: 0 }
+    await loadGoods()
   } else {
-    await createAdminGoods(form.value)
+    const result = await createAdminGoods({ goodsName: form.value.goodsName, originalPrice: form.value.originalPrice })
+    await loadGoods()
+    if (result.code === '0000') {
+      const created = goodsList.value.find((item) => item.goodsId === result.data.goodsId)
+      if (created) {
+        editGoods(created)
+        return
+      }
+    }
+    editing.value = false
+    selectedGoods.value = null
+    form.value = { goodsId: '', goodsName: '', originalPrice: 0 }
   }
-
-  editing.value = false
-  form.value = { goodsId: '', goodsName: '', originalPrice: 0 }
-  await loadGoods()
 }
 
 async function toggleStatus(item: AdminGoodsItem) {
   await updateAdminGoodsStatus(item.goodsId, item.status === 0 ? 1 : 0)
   await loadGoods()
+}
+
+async function handleImageUpload(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file || !selectedGoods.value) {
+    return
+  }
+  imageUploading.value = true
+  const goodsId = selectedGoods.value.goodsId
+  try {
+    await uploadAdminGoodsImage(goodsId, file)
+    await loadGoods()
+    selectedGoods.value = goodsList.value.find((item) => item.goodsId === goodsId) ?? selectedGoods.value
+  } finally {
+    imageUploading.value = false
+    input.value = ''
+  }
+}
+
+async function deleteImage(image: AdminGoodsImageItem) {
+  if (!selectedGoods.value) {
+    return
+  }
+  const goodsId = selectedGoods.value.goodsId
+  await deleteAdminGoodsImage(goodsId, image.imageId)
+  await loadGoods()
+  selectedGoods.value = goodsList.value.find((item) => item.goodsId === goodsId) ?? selectedGoods.value
 }
 
 onMounted(loadGoods)
@@ -203,6 +262,38 @@ onMounted(loadGoods)
   margin-top: 20px;
 }
 
+.image-manager {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.image-manager h3 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: #334155;
+}
+
+.image-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.image-item {
+  width: 120px;
+  display: grid;
+  gap: 8px;
+}
+
+.image-item img {
+  width: 120px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
 .btn {
   padding: 9px 20px;
   border: none;
@@ -262,6 +353,19 @@ onMounted(loadGoods)
   font-size: 14px;
   color: #334155;
   border-bottom: 1px solid #f1f5f9;
+}
+
+.cover-thumb {
+  width: 52px;
+  height: 52px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #f1f5f9;
+}
+
+.cover-empty {
+  color: #94a3b8;
+  font-size: 12px;
 }
 
 .data-table tbody tr:hover {

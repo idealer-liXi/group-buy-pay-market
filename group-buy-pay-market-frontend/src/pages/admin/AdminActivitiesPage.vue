@@ -16,13 +16,27 @@
               <label>活动名称</label>
               <input v-model="form.activityName" placeholder="请输入活动名称" />
             </div>
-            <div class="field">
+            <div class="field field-wide">
               <label>商品ID</label>
-              <input v-model="form.goodsId" placeholder="请输入商品ID" />
+              <div class="goods-option-grid">
+                <label v-for="item in visibleGoodsOptions" :key="item.goodsId" :class="['goods-option-card', selectedGoodsIds.includes(item.goodsId) ? 'goods-option-selected' : '']">
+                  <input v-model="selectedGoodsIds" type="checkbox" :value="item.goodsId" />
+                  <span class="goods-option-main">
+                    <span class="goods-option-title">{{ item.goodsId }} - {{ item.goodsName }}</span>
+                    <span class="goods-option-meta">原价 {{ item.originalPrice }} 元</span>
+                  </span>
+                </label>
+              </div>
+              <p class="field-hint">已选择 {{ selectedGoodsIds.length }} 个商品，提交时自动用逗号拼接商品ID</p>
             </div>
             <div class="field">
               <label>折扣ID</label>
-              <input v-model="form.discountId" placeholder="请输入折扣ID" />
+              <select v-model="form.discountId">
+                <option value="" disabled>请选择折扣ID</option>
+                <option v-for="item in discountOptions" :key="item.discountId" :value="item.discountId">
+                  {{ item.discountId }} - {{ item.discountName }}
+                </option>
+              </select>
             </div>
             <div class="field">
               <label>拼团类型</label>
@@ -50,11 +64,21 @@
             </div>
             <div class="field">
               <label>标签ID</label>
-              <input v-model="form.tagId" placeholder="标签ID" />
+              <select v-model="form.tagId">
+                <option value="">不限制</option>
+                <option v-for="item in tagOptions" :key="item.tagId" :value="item.tagId">
+                  {{ item.tagName }} - {{ item.tagId }}
+                </option>
+              </select>
             </div>
             <div class="field">
               <label>标签范围</label>
-              <input v-model="form.tagScope" placeholder="标签范围" />
+              <select v-model="form.tagScope">
+                <option value="">不限制</option>
+                <option value="1">标签外不可见</option>
+                <option value="2">标签外不可参与</option>
+                <option value="1,2">标签外不可见且不可参与</option>
+              </select>
             </div>
           </div>
           <div class="form-actions">
@@ -104,16 +128,26 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import AdminLayout from '../../components/admin/AdminLayout.vue'
-import { createAdminActivity, queryAdminActivities, updateAdminActivity, updateAdminActivityStatus } from '../../lib/admin'
-import type { AdminActivityItem } from '../../types/admin'
+import { createAdminActivity, queryAdminActivities, queryAdminDiscounts, queryAdminGoods, queryAdminTags, updateAdminActivity, updateAdminActivityStatus } from '../../lib/admin'
+import type { AdminActivityItem, AdminDiscountItem, AdminGoodsItem, AdminTagItem } from '../../types/admin'
 
 const activityList = ref<AdminActivityItem[]>([])
+const goodsOptions = ref<AdminGoodsItem[]>([])
+const discountOptions = ref<AdminDiscountItem[]>([])
+const tagOptions = ref<AdminTagItem[]>([])
+const selectedGoodsIds = ref<string[]>([])
 const loading = ref(true)
 const editing = ref(false)
 const error = ref('')
 const form = ref({ activityId: 0, activityName: '', goodsId: '', discountId: '', groupType: 1, takeLimitCount: 1, target: 2, validTime: 15, startTime: '', endTime: '', tagId: '', tagScope: '' })
+
+const visibleGoodsOptions = computed(() => {
+  const selected = new Set(selectedGoodsIds.value)
+  const bound = new Set(activityList.value.flatMap((item) => splitGoodsIds(item.goodsId)))
+  return goodsOptions.value.filter((item) => !bound.has(item.goodsId) || selected.has(item.goodsId))
+})
 
 function statusText(status: number) {
   const map: Record<number, string> = { 0: '创建', 1: '生效', 2: '过期', 3: '废弃' }
@@ -125,6 +159,10 @@ function statusClass(status: number) {
   return map[status] ?? 'status-created'
 }
 
+function splitGoodsIds(goodsId: string) {
+  return goodsId.split(',').map((item) => item.trim()).filter(Boolean)
+}
+
 async function loadActivities() {
   const result = await queryAdminActivities()
   if (result.code === '0000') {
@@ -133,8 +171,22 @@ async function loadActivities() {
   loading.value = false
 }
 
+async function loadOptions() {
+  const [goodsResult, discountResult, tagResult] = await Promise.all([queryAdminGoods(), queryAdminDiscounts(), queryAdminTags()])
+  if (goodsResult.code === '0000') {
+    goodsOptions.value = goodsResult.data.goodsList
+  }
+  if (discountResult.code === '0000') {
+    discountOptions.value = discountResult.data.discountList
+  }
+  if (tagResult.code === '0000') {
+    tagOptions.value = tagResult.data.tagList
+  }
+}
+
 function editActivity(item: AdminActivityItem) {
   editing.value = true
+  selectedGoodsIds.value = splitGoodsIds(item.goodsId)
   form.value = {
     activityId: item.activityId,
     activityName: item.activityName,
@@ -153,11 +205,13 @@ function editActivity(item: AdminActivityItem) {
 
 function cancelEdit() {
   editing.value = false
+  selectedGoodsIds.value = []
   form.value = { activityId: 0, activityName: '', goodsId: '', discountId: '', groupType: 1, takeLimitCount: 1, target: 2, validTime: 15, startTime: '', endTime: '', tagId: '', tagScope: '' }
 }
 
 async function submitActivity() {
   error.value = ''
+  form.value.goodsId = selectedGoodsIds.value.join(',')
 
   const result = editing.value
     ? await updateAdminActivity(form.value.activityId, form.value)
@@ -169,6 +223,7 @@ async function submitActivity() {
   }
 
   editing.value = false
+  selectedGoodsIds.value = []
   form.value = { activityId: 0, activityName: '', goodsId: '', discountId: '', groupType: 1, takeLimitCount: 1, target: 2, validTime: 15, startTime: '', endTime: '', tagId: '', tagScope: '' }
   await loadActivities()
 }
@@ -178,7 +233,10 @@ async function setStatus(item: AdminActivityItem, status: number) {
   await loadActivities()
 }
 
-onMounted(loadActivities)
+onMounted(() => {
+  loadActivities()
+  loadOptions()
+})
 </script>
 
 <style scoped>
@@ -222,13 +280,18 @@ onMounted(loadActivities)
   gap: 6px;
 }
 
+.field-wide {
+  grid-column: 1 / -1;
+}
+
 .field label {
   font-size: 13px;
   font-weight: 600;
   color: #475569;
 }
 
-.field input {
+.field input,
+.field select {
   height: 40px;
   padding: 0 12px;
   border: 1.5px solid #e2e8f0;
@@ -244,7 +307,8 @@ onMounted(loadActivities)
   color: #cbd5e1;
 }
 
-.field input:focus {
+.field input:focus,
+.field select:focus {
   border-color: #818cf8;
   background: #fff;
   box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.12);
@@ -254,6 +318,72 @@ onMounted(loadActivities)
   background: #f1f5f9;
   color: #94a3b8;
   cursor: not-allowed;
+}
+
+.goods-option-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  padding: 10px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.goods-option-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.goods-option-card:hover {
+  border-color: #c7d2fe;
+  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.12);
+  transform: translateY(-1px);
+}
+
+.goods-option-selected {
+  border-color: #818cf8;
+  background: #eef2ff;
+  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.12);
+}
+
+.goods-option-card input {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  flex: 0 0 auto;
+  accent-color: #6366f1;
+}
+
+.goods-option-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.goods-option-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.goods-option-meta,
+.field-hint {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.field-hint {
+  margin: 0;
 }
 
 .form-actions {

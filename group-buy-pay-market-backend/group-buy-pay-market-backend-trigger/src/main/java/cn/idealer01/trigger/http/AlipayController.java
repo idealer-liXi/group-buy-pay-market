@@ -30,7 +30,7 @@ import java.util.Map;
 @RequestMapping("/api/v1/alipay/")
 public class AlipayController implements IPayService {
 
-    @Value("${alipay.alipay_public_key}")
+    @Value("${alipay.alipay-public-key}")
     private String alipayPublicKey;
 
     @Resource

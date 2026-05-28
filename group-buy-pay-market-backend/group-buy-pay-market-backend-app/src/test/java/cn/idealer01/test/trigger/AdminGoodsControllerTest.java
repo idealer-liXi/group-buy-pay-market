@@ -1,6 +1,7 @@
 package cn.idealer01.test.trigger;
 
 import cn.idealer01.api.dto.AdminGoodsListResponseDTO;
+import cn.idealer01.api.dto.AdminGoodsUpsertResponseDTO;
 import cn.idealer01.api.dto.AdminStatusUpdateRequestDTO;
 import cn.idealer01.api.response.Response;
 import cn.idealer01.infrastructure.dao.ISkuDao;
@@ -54,7 +55,7 @@ public class AdminGoodsControllerTest {
         ISkuDao skuDao = mock(ISkuDao.class);
         AdminGoodsController controller = new AdminGoodsController(skuDao);
 
-        Response<Void> response = controller.createGoods(
+        Response<AdminGoodsUpsertResponseDTO> response = controller.createGoods(
                 cn.idealer01.api.dto.AdminGoodsUpsertRequestDTO.builder()
                         .goodsName("新商品")
                         .originalPrice(new BigDecimal("19.90"))
@@ -64,6 +65,7 @@ public class AdminGoodsControllerTest {
         ArgumentCaptor<Sku> captor = ArgumentCaptor.forClass(Sku.class);
         verify(skuDao).insertSku(captor.capture());
         assertNotNull(captor.getValue().getGoodsId());
+        assertEquals(captor.getValue().getGoodsId(), response.getData().getGoodsId());
         assertEquals("0000", response.getCode());
     }
 }

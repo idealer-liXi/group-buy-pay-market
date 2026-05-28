@@ -54,6 +54,10 @@
             <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.aliyun.oss</groupId>
+            <artifactId>aliyun-sdk-oss</artifactId>
+        </dependency>
+        <dependency>
             <groupId>cn.idealer</groupId>
             <artifactId>idealer-wrench-starter-dynamic-config-center</artifactId>
         </dependency>

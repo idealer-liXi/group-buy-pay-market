@@ -16,12 +16,12 @@ public class AliPayConfig {
     public AlipayClient alipayClient(AliPayConfigProperties properties) {
         return new DefaultAlipayClient(
                 properties.getGatewayUrl(),
-                properties.getApp_id(),
-                properties.getMerchant_private_key(),
+                properties.getAppId(),
+                properties.getMerchantPrivateKey(),
                 properties.getFormat(),
                 properties.getCharset(),
-                properties.getAlipay_public_key(),
-                properties.getSign_type()
+                properties.getAlipayPublicKey(),
+                properties.getSignType()
         );
     }
 }

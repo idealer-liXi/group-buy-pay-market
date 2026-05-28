@@ -5,7 +5,22 @@
 
       <section class="hero">
         <div class="gallery">
-          <GoodsNameCover :title="currentGoodsName" size="hero" />
+          <div class="carousel-main">
+            <GoodsNameCover :title="currentGoodsName" :image-url="currentGalleryImageUrl" size="hero" />
+            <button v-if="galleryImageUrls.length > 1" class="carousel-btn carousel-prev" type="button" aria-label="上一张商品图" @click="showPrevImage">‹</button>
+            <button v-if="galleryImageUrls.length > 1" class="carousel-btn carousel-next" type="button" aria-label="下一张商品图" @click="showNextImage">›</button>
+          </div>
+          <div v-if="galleryImageUrls.length > 1" class="gallery-thumbs">
+            <button
+              v-for="(imageUrl, index) in galleryImageUrls"
+              :key="imageUrl"
+              :class="['gallery-thumb-btn', selectedImageIndex === index ? 'gallery-thumb-active' : '']"
+              type="button"
+              @click="selectImage(index)"
+            >
+              <img class="gallery-thumb" :src="imageUrl" :alt="currentGoodsName" />
+            </button>
+          </div>
         </div>
         <div class="product-info">
           <div class="product-badge">拼团优惠</div>
@@ -59,7 +74,22 @@
 
       <section class="hero fallback-hero">
         <div class="gallery">
-          <GoodsNameCover :title="currentGoodsName" size="hero" />
+          <div class="carousel-main">
+            <GoodsNameCover :title="currentGoodsName" :image-url="currentGalleryImageUrl" size="hero" />
+            <button v-if="galleryImageUrls.length > 1" class="carousel-btn carousel-prev" type="button" aria-label="上一张商品图" @click="showPrevImage">‹</button>
+            <button v-if="galleryImageUrls.length > 1" class="carousel-btn carousel-next" type="button" aria-label="下一张商品图" @click="showNextImage">›</button>
+          </div>
+          <div v-if="galleryImageUrls.length > 1" class="gallery-thumbs">
+            <button
+              v-for="(imageUrl, index) in galleryImageUrls"
+              :key="imageUrl"
+              :class="['gallery-thumb-btn', selectedImageIndex === index ? 'gallery-thumb-active' : '']"
+              type="button"
+              @click="selectImage(index)"
+            >
+              <img class="gallery-thumb" :src="imageUrl" :alt="currentGoodsName" />
+            </button>
+          </div>
         </div>
         <div class="product-info">
           <div class="product-badge product-badge-muted">普通商品</div>
@@ -104,7 +134,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import GoodsNameCover from '../components/GoodsNameCover.vue'
 import GroupTeamList from '../components/GroupTeamList.vue'
@@ -121,19 +151,35 @@ const skuList = ref<SkuItem[]>([])
 const pageError = ref('')
 const payDialog = ref({ open: false, amount: 0, html: '' })
 const currentTimeMs = ref(Date.now())
+const selectedImageIndex = ref(0)
 let countdownTimer: ReturnType<typeof window.setInterval> | null = null
 
 const currentGoodsId = computed(() => String(route.params.goodsId ?? ''))
 
-const currentGoodsName = computed(() => resolveGoodsName(currentGoodsId.value, skuList.value))
+const currentGoodsName = computed(() => marketData.value?.goods.goodsName || resolveGoodsName(currentGoodsId.value, skuList.value))
 
-const isPlainGoods = computed(() => marketData.value?.activityId == null)
+const galleryImageUrls = computed(() => {
+  if (!marketData.value) {
+    return []
+  }
+  return Array.from(new Set([marketData.value.goods.coverImageUrl, ...(marketData.value.goods.imageUrls ?? [])].filter(Boolean))) as string[]
+})
+
+const currentGalleryImageUrl = computed(() => galleryImageUrls.value[selectedImageIndex.value] ?? marketData.value?.goods.coverImageUrl ?? null)
+
+const isPlainGoods = computed(() => marketData.value?.activityId == null || marketData.value?.isVisible === false)
+
+const canJoinGroup = computed(() => marketData.value?.isEnable !== false)
 
 const teamSummaries = computed(() => {
   if (!marketData.value) {
     return []
   }
   return toTeamSummaries(marketData.value.teamList, currentTimeMs.value)
+})
+
+watch(galleryImageUrls, () => {
+  selectedImageIndex.value = 0
 })
 
 onMounted(async () => {
@@ -194,6 +240,11 @@ async function requestPay(marketType: number, teamId: string | null) {
     return
   }
 
+  if (marketType === 1 && !canJoinGroup.value) {
+    window.alert('当前拼团活动仅限指定人群参与')
+    return
+  }
+
   const goods = marketData.value.goods
   const activityId = marketType === 1 && marketData.value.activityId != null ? marketData.value.activityId : undefined
   const result = await createPayOrder({
@@ -210,6 +261,8 @@ async function requestPay(marketType: number, teamId: string | null) {
       amount: marketType === 1 ? goods.payPrice : goods.originalPrice,
       html: result.data
     }
+  } else {
+    window.alert(result.info || '下单失败，请稍后重试')
   }
 }
 
@@ -224,6 +277,24 @@ function submitPayForm() {
 
 function closePayDialog() {
   payDialog.value = { open: false, amount: 0, html: '' }
+}
+
+function selectImage(index: number) {
+  selectedImageIndex.value = index
+}
+
+function showPrevImage() {
+  if (galleryImageUrls.value.length <= 1) {
+    return
+  }
+  selectedImageIndex.value = (selectedImageIndex.value - 1 + galleryImageUrls.value.length) % galleryImageUrls.value.length
+}
+
+function showNextImage() {
+  if (galleryImageUrls.value.length <= 1) {
+    return
+  }
+  selectedImageIndex.value = (selectedImageIndex.value + 1) % galleryImageUrls.value.length
 }
 </script>
 
@@ -266,10 +337,83 @@ function closePayDialog() {
 
 .gallery {
   display: flex;
+  flex-direction: column;
   border-radius: 16px;
   overflow: hidden;
   background: #fff;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.carousel-main {
+  position: relative;
+  min-height: 320px;
+  display: flex;
+}
+
+.carousel-main :deep(.goods-name-cover) {
+  min-height: 320px;
+}
+
+.carousel-btn {
+  position: absolute;
+  top: 50%;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.56);
+  color: #fff;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.carousel-btn:hover {
+  background: rgba(37, 99, 235, 0.86);
+  transform: translateY(-50%) scale(1.05);
+}
+
+.carousel-prev {
+  left: 12px;
+}
+
+.carousel-next {
+  right: 12px;
+}
+
+.gallery-thumbs {
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+  overflow-x: auto;
+  background: #fff;
+}
+
+.gallery-thumb-btn {
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.gallery-thumb-btn:hover,
+.gallery-thumb-active {
+  border-color: #2563eb;
+  transform: translateY(-1px);
+}
+
+.gallery-thumb {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 10px;
+  background: #f1f5f9;
+  flex: 0 0 auto;
 }
 
 .fallback-hero {
@@ -481,6 +625,11 @@ function closePayDialog() {
   .hero {
     grid-template-columns: 1fr;
     gap: 16px;
+  }
+
+  .carousel-main,
+  .carousel-main :deep(.goods-name-cover) {
+    min-height: 280px;
   }
 
   .product-info,
