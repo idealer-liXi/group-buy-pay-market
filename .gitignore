@@ -1,0 +1,21 @@
+# IDE
+.idea/
+
+# Frontend
+node_modules/
+dist/
+
+# Backend (Maven)
+target/
+
+# Config
+application-dev.yml
+
+# Runtime data & logs
+data/
+
+# CodeGraph index
+.codegraph/
+
+# Git worktrees
+.worktrees/
