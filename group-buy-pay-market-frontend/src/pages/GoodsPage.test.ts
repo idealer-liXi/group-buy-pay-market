@@ -62,9 +62,13 @@ describe('GoodsPage', () => {
   })
 
   it('opens pay confirmation first and locks order only after confirm', async () => {
+    mocks.createPayOrder.mockResolvedValue({ code: '0000', data: { orderId: 'new-order', payUrl: '<form></form>', reusedPayOrder: false } })
     const router = createRouter({
       history: createWebHistory(),
-      routes: [{ path: '/goods/:goodsId', component: GoodsPage }]
+      routes: [
+        { path: '/goods/:goodsId', component: GoodsPage },
+        { path: '/mock-pay/:orderId', component: { template: '<div />' } }
+      ]
     })
     router.push('/goods/9890005')
     await router.isReady()
@@ -105,6 +109,9 @@ describe('GoodsPage', () => {
       teamId: null,
       marketType: 0
     })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(router.currentRoute.value.fullPath).toBe('/mock-pay/new-order')
+    expect(mocks.injectPayFormHtml).not.toHaveBeenCalled()
   })
 
   it('prompts user to pay existing unpaid order before submitting reused pay form', async () => {
@@ -114,7 +121,10 @@ describe('GoodsPage', () => {
     })
     const router = createRouter({
       history: createWebHistory(),
-      routes: [{ path: '/goods/:goodsId', component: GoodsPage }]
+      routes: [
+        { path: '/goods/:goodsId', component: GoodsPage },
+        { path: '/mock-pay/:orderId', component: { template: '<div />' } }
+      ]
     })
     router.push('/goods/9890005')
     await router.isReady()
@@ -139,7 +149,9 @@ describe('GoodsPage', () => {
 
     await wrapper.get('.confirm-btn').trigger('click')
 
-    expect(mocks.injectPayFormHtml).toHaveBeenCalledWith('<form id="old-pay"></form>')
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(router.currentRoute.value.fullPath).toBe('/mock-pay/old-order')
+    expect(mocks.injectPayFormHtml).not.toHaveBeenCalled()
   })
 
   it('switches goods images through carousel controls and thumbnails', async () => {

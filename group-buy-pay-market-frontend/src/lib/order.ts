@@ -2,6 +2,7 @@ import { http } from './http'
 import type {
   ApiResponse,
   CancelOrderRequest,
+  MockPayRequest,
   PurchaseHistoryResponse,
   RefundPaidOrderRequest,
   RefundMarketPayOrderRequest,
@@ -35,6 +36,14 @@ export async function cancelOrder(payload: CancelOrderRequest) {
 export async function refundPaidOrder(payload: RefundPaidOrderRequest) {
   const { data } = await http.post<ApiResponse<boolean>>(
     '/api/v1/gbm/order/refund_paid_order',
+    payload
+  )
+  return data
+}
+
+export async function mockPayOrder(payload: MockPayRequest) {
+  const { data } = await http.post<ApiResponse<boolean>>(
+    '/api/v1/gbm/order/mock_pay',
     payload
   )
   return data

@@ -137,6 +137,12 @@ export type RefundPaidOrderRequest = {
   orderId: string
 }
 
+export type MockPayRequest = {
+  userId: string
+  orderId: string
+  password: string
+}
+
 export type UserNotificationMessage = {
   type: 'GROUP_SUCCESS' | 'GROUP_FAIL' | 'PAY_SUCCESS' | 'REFUND_SUCCESS' | string
   orderId?: string

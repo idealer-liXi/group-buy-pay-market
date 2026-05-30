@@ -43,7 +43,7 @@
           <strong>实付 ￥{{ record.payAmount.toFixed(2) }}</strong>
         </div>
         <div v-if="record.statusType === 'WAIT_PAY'" class="record-actions">
-          <button class="continue-pay-btn" :disabled="!record.payUrl" @click="continuePay(record)">
+          <button class="continue-pay-btn" :disabled="!record.orderId" @click="continuePay(record)">
             继续支付
           </button>
           <button class="refund-btn" :disabled="isOrderActionPending(record)" @click="cancelUnpaid(record)">
@@ -65,7 +65,6 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getCookie } from '../lib/cookie'
 import { cancelOrder, queryPurchaseHistory, refundMarketPayOrder, refundPaidOrder } from '../lib/order'
-import { injectPayFormHtml } from '../lib/pay'
 import type { PurchaseRecord } from '../types/api'
 
 type FilterType = 'ALL' | PurchaseRecord['statusType']
@@ -149,12 +148,12 @@ function formatTime(value: string) {
   return new Date(value).toLocaleString()
 }
 
-function continuePay(record: PurchaseRecord) {
-  if (!record.payUrl) {
+async function continuePay(record: PurchaseRecord) {
+  if (!record.orderId) {
     return
   }
 
-  injectPayFormHtml(record.payUrl)?.submit()
+  await router.push(`/mock-pay/${record.orderId}`)
 }
 
 function canRefund(record: PurchaseRecord) {

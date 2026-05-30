@@ -29,6 +29,8 @@ public class OrderService extends AbstactOrderService{
     private String notifyUrl;
     @Value("${alipay.return-url}")
     private String returnUrl;
+    @Value("${alipay.mock-pay-enabled:true}")
+    private boolean mockPayEnabled = true;
     @Resource
     private AlipayClient alipayClient;
 
@@ -40,22 +42,11 @@ public class OrderService extends AbstactOrderService{
     protected PayOrderEntity doPrepayOrder(String userId, String productId, String productName, String orderId, BigDecimal totalAmount, MarketPayDiscountEntity marketPayDiscountEntity) throws AlipayApiException {
         BigDecimal payAmount = null == marketPayDiscountEntity? totalAmount : marketPayDiscountEntity.getPayPrice();
 
-        AlipayTradePagePayRequest request = new AlipayTradePagePayRequest();
-        request.setNotifyUrl(notifyUrl);
-        request.setReturnUrl(returnUrl);
-
-        JSONObject bizContent = new JSONObject();
-        bizContent.put("out_trade_no", orderId);
-        bizContent.put("total_amount", formatAlipayTotalAmount(payAmount));
-        bizContent.put("subject", productName);
-        bizContent.put("product_code", "FAST_INSTANT_TRADE_PAY");
-        request.setBizContent(bizContent.toString());
-
-        String form = alipayClient.pageExecute(request).getBody();
+        String payUrl = mockPayEnabled ? buildMockPayUrl(orderId) : buildAlipayPayForm(productName, orderId, payAmount);
 
         PayOrderEntity payOrderEntity = new PayOrderEntity();
         payOrderEntity.setOrderId(orderId);
-        payOrderEntity.setPayUrl(form);
+        payOrderEntity.setPayUrl(payUrl);
         payOrderEntity.setOrderStatus(OrderStatusVO.PAY_WAIT);
 
         //设置营销信息
@@ -81,6 +72,25 @@ public class OrderService extends AbstactOrderService{
 
     public static String formatAlipayTotalAmount(BigDecimal amount) {
         return amount.setScale(2, RoundingMode.HALF_UP).toPlainString();
+    }
+
+    public static String buildMockPayUrl(String orderId) {
+        return "/mock-pay/" + orderId;
+    }
+
+    private String buildAlipayPayForm(String productName, String orderId, BigDecimal payAmount) throws AlipayApiException {
+        AlipayTradePagePayRequest request = new AlipayTradePagePayRequest();
+        request.setNotifyUrl(notifyUrl);
+        request.setReturnUrl(returnUrl);
+
+        JSONObject bizContent = new JSONObject();
+        bizContent.put("out_trade_no", orderId);
+        bizContent.put("total_amount", formatAlipayTotalAmount(payAmount));
+        bizContent.put("subject", productName);
+        bizContent.put("product_code", "FAST_INSTANT_TRADE_PAY");
+        request.setBizContent(bizContent.toString());
+
+        return alipayClient.pageExecute(request).getBody();
     }
 
     @Override

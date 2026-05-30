@@ -179,7 +179,7 @@ import GroupTeamList from '../components/GroupTeamList.vue'
 import PayConfirmDialog from '../components/PayConfirmDialog.vue'
 import { getCookie } from '../lib/cookie'
 import { queryGroupBuyMarketConfig, querySkuList, resolveGoodsName, toTeamSummaries } from '../lib/market'
-import { createPayOrder, injectPayFormHtml } from '../lib/pay'
+import { createPayOrder } from '../lib/pay'
 import type { GoodsMarketResponse, SkuItem } from '../types/api'
 
 const route = useRoute()
@@ -188,7 +188,7 @@ const marketData = ref<GoodsMarketResponse | null>(null)
 const skuList = ref<SkuItem[]>([])
 const pageError = ref('')
 const payDialog = ref({ open: false, amount: 0, marketType: 0, teamId: null as string | null })
-const noticeDialog = ref({ open: false, title: '', message: '', confirmText: '知道了', payFormHtml: '' })
+const noticeDialog = ref({ open: false, title: '', message: '', confirmText: '知道了', payOrderId: '' })
 const currentTimeMs = ref(Date.now())
 const selectedImageIndex = ref(0)
 let countdownTimer: ReturnType<typeof window.setInterval> | null = null
@@ -317,11 +317,11 @@ async function submitPayForm() {
   if (result.code === '0000') {
     if (result.data.reusedPayOrder) {
       closePayDialog()
-      showNotice('已有未支付订单', '该商品已有未支付订单，请先完成这笔订单的支付', '去支付', result.data.payUrl)
+      showNotice('已有未支付订单', '该商品已有未支付订单，请先完成这笔订单的支付', '去支付', result.data.orderId)
       return
     }
-    injectPayFormHtml(result.data.payUrl)?.submit()
     closePayDialog()
+    await goToMockPay(result.data.orderId)
   } else {
     closePayDialog()
     showNotice('下单失败', result.info || '下单失败，请稍后重试')
@@ -332,16 +332,24 @@ function closePayDialog() {
   payDialog.value = { open: false, amount: 0, marketType: 0, teamId: null }
 }
 
-function showNotice(title: string, message: string, confirmText = '知道了', payFormHtml = '') {
-  noticeDialog.value = { open: true, title, message, confirmText, payFormHtml }
+function showNotice(title: string, message: string, confirmText = '知道了', payOrderId = '') {
+  noticeDialog.value = { open: true, title, message, confirmText, payOrderId }
 }
 
-function closeNoticeDialog() {
-  const payFormHtml = noticeDialog.value.payFormHtml
-  noticeDialog.value = { open: false, title: '', message: '', confirmText: '知道了', payFormHtml: '' }
-  if (payFormHtml) {
-    injectPayFormHtml(payFormHtml)?.submit()
+async function closeNoticeDialog() {
+  const payOrderId = noticeDialog.value.payOrderId
+  noticeDialog.value = { open: false, title: '', message: '', confirmText: '知道了', payOrderId: '' }
+  if (payOrderId) {
+    await goToMockPay(payOrderId)
   }
+}
+
+async function goToMockPay(orderId?: string) {
+  if (!orderId) {
+    showNotice('下单失败', '支付订单号为空，请重新下单')
+    return
+  }
+  await router.push(`/mock-pay/${orderId}`)
 }
 
 function selectImage(index: number) {

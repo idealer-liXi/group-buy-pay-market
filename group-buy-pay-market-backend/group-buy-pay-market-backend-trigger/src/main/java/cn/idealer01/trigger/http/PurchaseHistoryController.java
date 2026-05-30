@@ -1,9 +1,12 @@
 package cn.idealer01.trigger.http;
 
 import cn.idealer01.api.dto.CancelOrderRequestDTO;
+import cn.idealer01.api.dto.MockPayRequestDTO;
 import cn.idealer01.api.dto.PurchaseHistoryResponseDTO;
 import cn.idealer01.api.dto.RefundPaidOrderRequestDTO;
 import cn.idealer01.api.response.Response;
+import cn.idealer01.domain.order.model.valobj.OrderStatusVO;
+import cn.idealer01.domain.order.service.IOrderService;
 import cn.idealer01.infrastructure.dao.IOrderDao;
 import cn.idealer01.infrastructure.dao.po.PayOrder;
 import cn.idealer01.trigger.websocket.UserNotificationWebSocketHandler;
@@ -39,6 +42,8 @@ public class PurchaseHistoryController {
 
     @Resource
     private IOrderDao orderDao;
+    @Resource
+    private IOrderService orderService;
     @Resource
     private PurchaseStatusResolver purchaseStatusResolver;
     @Resource
@@ -207,6 +212,53 @@ public class PurchaseHistoryController {
         }
     }
 
+    @PostMapping("mock_pay")
+    public Response<Boolean> mockPay(@RequestBody MockPayRequestDTO requestDTO) {
+        try {
+            if (null == requestDTO || StringUtils.isBlank(requestDTO.getUserId()) || StringUtils.isBlank(requestDTO.getOrderId()) || StringUtils.isBlank(requestDTO.getPassword())) {
+                return Response.<Boolean>builder()
+                        .code(ResponseCode.ILLEGAL_PARAMETER.getCode())
+                        .info(ResponseCode.ILLEGAL_PARAMETER.getInfo())
+                        .data(false)
+                        .build();
+            }
+
+            if (!"111111".equals(requestDTO.getPassword())) {
+                return Response.<Boolean>builder()
+                        .code(ResponseCode.ILLEGAL_PARAMETER.getCode())
+                        .info("支付密码错误")
+                        .data(false)
+                        .build();
+            }
+
+            PayOrder payOrder = orderDao.queryOrderByOrderId(requestDTO.getOrderId());
+            if (null == payOrder || !requestDTO.getUserId().equals(payOrder.getUserId()) || !OrderStatusVO.PAY_WAIT.getCode().equals(payOrder.getStatus())) {
+                return Response.<Boolean>builder()
+                        .code(ResponseCode.ILLEGAL_PARAMETER.getCode())
+                        .info(ResponseCode.ILLEGAL_PARAMETER.getInfo())
+                        .data(false)
+                        .build();
+            }
+
+            orderService.changeOrderPaySuccess(requestDTO.getOrderId(), new java.util.Date());
+            if (null != payOrder.getMarketType() && payOrder.getMarketType() == 1) {
+                pushPaySuccess(payOrder.getUserId(), payOrder.getOrderId());
+            }
+            return Response.<Boolean>builder()
+                    .code(ResponseCode.SUCCESS.getCode())
+                    .info(ResponseCode.SUCCESS.getInfo())
+                    .data(true)
+                    .build();
+        } catch (Exception e) {
+            log.error("模拟支付失败 userId:{} orderId:{}", null == requestDTO ? null : requestDTO.getUserId(), null == requestDTO ? null : requestDTO.getOrderId(), e);
+            return Response.<Boolean>builder()
+                    .code(ResponseCode.UN_ERROR.getCode())
+                    .info(ResponseCode.UN_ERROR.getInfo())
+                    .data(false)
+                    .build();
+        }
+    }
+
     private boolean canRefundPaidPlainOrder(RefundPaidOrderRequestDTO requestDTO, PayOrder payOrder) {
         if (null == payOrder || !requestDTO.getUserId().equals(payOrder.getUserId())) {
             return false;
@@ -243,6 +295,17 @@ public class PurchaseHistoryController {
         payload.put("type", "REFUND_SUCCESS");
         payload.put("orderId", orderId);
         payload.put("message", "退单成功");
+        userNotificationWebSocketHandler.sendToUsers(Collections.singleton(userId), com.alibaba.fastjson.JSON.toJSONString(payload));
+    }
+
+    private void pushPaySuccess(String userId, String orderId) {
+        if (userNotificationWebSocketHandler == null || StringUtils.isBlank(userId)) {
+            return;
+        }
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("type", "PAY_SUCCESS");
+        payload.put("orderId", orderId);
+        payload.put("message", "支付成功");
         userNotificationWebSocketHandler.sendToUsers(Collections.singleton(userId), com.alibaba.fastjson.JSON.toJSONString(payload));
     }
 

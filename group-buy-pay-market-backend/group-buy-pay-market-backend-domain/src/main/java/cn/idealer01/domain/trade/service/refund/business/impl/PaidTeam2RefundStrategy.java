@@ -1,24 +1,13 @@
 package cn.idealer01.domain.trade.service.refund.business.impl;
 
-import cn.idealer01.domain.trade.adapter.respository.ITradeRepository;
 import cn.idealer01.domain.trade.model.aggregate.GroupBuyRefundAggregate;
-import cn.idealer01.domain.trade.model.entity.GroupBuyTeamEntity;
 import cn.idealer01.domain.trade.model.entity.NotifyTaskEntity;
 import cn.idealer01.domain.trade.model.entity.TradeRefundOrderEntity;
 import cn.idealer01.domain.trade.model.valobj.RefundTypeEnumVO;
 import cn.idealer01.domain.trade.model.valobj.TeamRefundSuccess;
-import cn.idealer01.domain.trade.service.ITradeTaskService;
 import cn.idealer01.domain.trade.service.refund.business.AbstractRefundOrderStrategy;
-import cn.idealer01.domain.trade.service.refund.business.IRefundOrderStrategy;
-import cn.idealer01.types.enums.GroupBuyOrderEnumVO;
-import cn.idealer01.types.exception.AppException;
-import com.alibaba.fastjson.JSON;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
-import javax.annotation.Resource;
-import java.util.Map;
-import java.util.concurrent.ThreadPoolExecutor;
 
 @Slf4j
 @Service("paidTeam2RefundStrategy")
@@ -28,17 +17,13 @@ public class PaidTeam2RefundStrategy extends AbstractRefundOrderStrategy {
     public void refundOrder(TradeRefundOrderEntity tradeRefundOrderEntity) {
         log.info("退单，已支付，已完成组团，userId:{}, orderId:{} teamId:{}", tradeRefundOrderEntity.getUserId(), tradeRefundOrderEntity.getOrderId(), tradeRefundOrderEntity.getTeamId());
 
-        //1.查询拼团信息
-        GroupBuyTeamEntity groupBuyTeamEntity = repository.queryGroupBuyTeamByTeamId(tradeRefundOrderEntity.getTeamId());
-
-        //2.如果组团的最后一个人也退单了，则说明拼团失败
-        GroupBuyOrderEnumVO groupBuyOrderEnumVO = 1 == groupBuyTeamEntity.getCompleteCount() ? GroupBuyOrderEnumVO.FAIL : GroupBuyOrderEnumVO.COMPLETE_FAIL;
-
-        //3.更新数据库记录
-        GroupBuyRefundAggregate groupBuyRefundAggregate = GroupBuyRefundAggregate.buildPaidTeam2RefundAggregate(tradeRefundOrderEntity, -1, -1, groupBuyOrderEnumVO);
+        // 已成团退单只关闭当前用户订单，不改变已完成的拼团队伍。
+        GroupBuyRefundAggregate groupBuyRefundAggregate = GroupBuyRefundAggregate.builder()
+                .tradeRefundOrderEntity(tradeRefundOrderEntity)
+                .build();
         NotifyTaskEntity notifyTaskEntity = repository.paidTeam2Refund(groupBuyRefundAggregate);
 
-        //4.发送MQ消息
+        //2.发送MQ消息
         sendRefundNotifyMessage(notifyTaskEntity, RefundTypeEnumVO.PAID_FORMED.getInfo());
 
     }

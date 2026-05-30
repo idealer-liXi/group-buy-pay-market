@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from 'vitest'
 import PurchaseHistoryPage from './PurchaseHistoryPage.vue'
 
 const mocks = vi.hoisted(() => ({
-  injectPayFormHtml: vi.fn(),
   queryPurchaseHistory: vi.fn().mockResolvedValue({
     code: '0000',
     data: {
@@ -60,17 +59,16 @@ vi.mock('../lib/order', () => ({
   refundPaidOrder: mocks.refundPaidOrder
 }))
 
-vi.mock('../lib/pay', () => ({
-  injectPayFormHtml: mocks.injectPayFormHtml
-}))
-
 describe('PurchaseHistoryPage', () => {
   it('renders purchase records by status and purchase type', async () => {
     vi.stubGlobal('WebSocket', MockWebSocket)
 
     const router = createRouter({
       history: createWebHistory(),
-      routes: [{ path: '/orders', component: PurchaseHistoryPage }]
+      routes: [
+        { path: '/orders', component: PurchaseHistoryPage },
+        { path: '/mock-pay/:orderId', component: { template: '<div />' } }
+      ]
     })
     router.push('/orders')
     await router.isReady()
@@ -93,7 +91,8 @@ describe('PurchaseHistoryPage', () => {
     expect(wrapper.text()).toContain('已关闭')
 
     await wrapper.get('.continue-pay-btn').trigger('click')
-    expect(mocks.injectPayFormHtml).toHaveBeenCalledWith('<form id="pay"></form>')
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(router.currentRoute.value.fullPath).toBe('/mock-pay/o1')
 
     expect(wrapper.findAll('.refund-btn')).toHaveLength(5)
     expect(wrapper.text()).toContain('普通商品')

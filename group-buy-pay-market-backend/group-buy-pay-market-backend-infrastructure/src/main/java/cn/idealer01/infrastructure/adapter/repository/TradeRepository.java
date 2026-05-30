@@ -503,7 +503,7 @@ public class TradeRepository implements ITradeRepository {
 
         //4.构建回调任务
         Map<String, Object> parameterMap = new HashMap<>();
-        parameterMap.put("type", RefundTypeEnumVO.PAID_UNFORMED);
+        parameterMap.put("type", RefundTypeEnumVO.PAID_UNFORMED.getCode());
         parameterMap.put("userId", userId);
         parameterMap.put("teamId", teamId);
         parameterMap.put("orderId", orderId);
@@ -536,10 +536,9 @@ public class TradeRepository implements ITradeRepository {
     }
 
     @Override
+    @Transactional(timeout = 5000)
     public NotifyTaskEntity paidTeam2Refund(GroupBuyRefundAggregate groupBuyRefundAggregate) {
-        GroupBuyOrderEnumVO groupBuyOrderEnumVO = groupBuyRefundAggregate.getGroupBuyOrderEnumVO();
         TradeRefundOrderEntity tradeRefundOrderEntity = groupBuyRefundAggregate.getTradeRefundOrderEntity();
-        GroupBuyProgressVO groupBuyProgressVO = groupBuyRefundAggregate.getGroupBuyProgressVO();
 
         //1.更新详细记录
         String userId = tradeRefundOrderEntity.getUserId();
@@ -558,25 +557,11 @@ public class TradeRepository implements ITradeRepository {
             throw new AppException(ResponseCode.UPDATE_ZERO);
         }
 
-        //2.更新组团记录
-        GroupBuyOrder groupBuyOrderReq = GroupBuyOrder.builder()
-                .teamId(teamId)
-                .lockCount(groupBuyProgressVO.getLockCount())
-                .completeCount(groupBuyProgressVO.getCompleteCount())
-                .build();
-
-        if(groupBuyOrderEnumVO.equals(GroupBuyOrderEnumVO.COMPLETE_FAIL)){
-            int updatePaidTeam2RefundCount = groupBuyOrderDao.paidTeam2Refund(groupBuyOrderReq);
-            if(1 != updatePaidTeam2RefundCount){
-                log.error("逆向流程-paidTeam2Refund, 拼团退单失败(拼团完成，存在退单) userId:{} orderId:{}", userId, orderId);
-                throw new AppException(ResponseCode.UPDATE_ZERO);
-            }
-        }else if(groupBuyOrderEnumVO.equals(GroupBuyOrderEnumVO.FAIL)){
-            int updatePaidTeam2RefundCount = groupBuyOrderDao.paidTeam2RefundFail(groupBuyOrderReq);
-            if(1 != updatePaidTeam2RefundCount){
-                log.error("逆向流程-paidTeam2RefundFail, 拼团退单失败(最后一人退单) userId:{} orderId:{}", userId, orderId);
-                throw new AppException(ResponseCode.UPDATE_ZERO);
-            }
+        //2.关闭退单用户的支付订单，拼团队伍保持已完成状态。
+        boolean closeOrderResult = orderDao.changeOrderClose(tradeRefundOrderEntity.getOutTradeNo());
+        if(!closeOrderResult){
+            log.error("逆向流程-paidTeam2Refund, 关闭支付订单失败 userId:{} outTradeNo:{}", userId, tradeRefundOrderEntity.getOutTradeNo());
+            throw new AppException(ResponseCode.UPDATE_ZERO);
         }
 
         //3.持久化通知消息记录
@@ -592,7 +577,7 @@ public class TradeRepository implements ITradeRepository {
                 .build();
 
         Map<String, Object> parameterMap = new HashMap<>();
-        parameterMap.put("type", RefundTypeEnumVO.PAID_FORMED);
+        parameterMap.put("type", RefundTypeEnumVO.PAID_FORMED.getCode());
         parameterMap.put("userId", userId);
         parameterMap.put("teamId", teamId);
         parameterMap.put("orderId", orderId);

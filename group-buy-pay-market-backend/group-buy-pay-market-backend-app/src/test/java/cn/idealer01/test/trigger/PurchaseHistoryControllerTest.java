@@ -1,9 +1,11 @@
 package cn.idealer01.test.trigger;
 
 import cn.idealer01.api.dto.CancelOrderRequestDTO;
+import cn.idealer01.api.dto.MockPayRequestDTO;
 import cn.idealer01.api.dto.PurchaseHistoryResponseDTO;
 import cn.idealer01.api.dto.RefundPaidOrderRequestDTO;
 import cn.idealer01.api.response.Response;
+import cn.idealer01.domain.order.service.IOrderService;
 import cn.idealer01.infrastructure.dao.IOrderDao;
 import cn.idealer01.infrastructure.dao.po.PayOrder;
 import cn.idealer01.trigger.http.PurchaseHistoryController;
@@ -276,5 +278,97 @@ public class PurchaseHistoryControllerTest {
         assertEquals("0002", response.getCode());
         verify(alipayClient, never()).execute(any(AlipayTradeRefundRequest.class));
         verify(orderDao, never()).changeOrderClose("o1");
+    }
+
+    @Test
+    public void mockPay_marksOwnWaitingOrderPaidWithDefaultPassword() {
+        IOrderDao orderDao = mock(IOrderDao.class);
+        IOrderService orderService = mock(IOrderService.class);
+        when(orderDao.queryOrderByOrderId("o1")).thenReturn(PayOrder.builder()
+                .userId("u1")
+                .orderId("o1")
+                .status("PAY_WAIT")
+                .build());
+
+        PurchaseHistoryController controller = new PurchaseHistoryController(orderDao);
+        ReflectionTestUtils.setField(controller, "orderService", orderService);
+        Response<Boolean> response = controller.mockPay(MockPayRequestDTO.builder()
+                .userId("u1")
+                .orderId("o1")
+                .password("111111")
+                .build());
+
+        assertEquals("0000", response.getCode());
+        assertEquals(Boolean.TRUE, response.getData());
+        verify(orderService).changeOrderPaySuccess(eq("o1"), any(Date.class));
+    }
+
+    @Test
+    public void mockPay_pushesPaySuccessNotificationForGroupOrderImmediately() {
+        IOrderDao orderDao = mock(IOrderDao.class);
+        IOrderService orderService = mock(IOrderService.class);
+        UserNotificationWebSocketHandler webSocketHandler = mock(UserNotificationWebSocketHandler.class);
+        when(orderDao.queryOrderByOrderId("o1")).thenReturn(PayOrder.builder()
+                .userId("u1")
+                .orderId("o1")
+                .status("PAY_WAIT")
+                .marketType(1)
+                .build());
+
+        PurchaseHistoryController controller = new PurchaseHistoryController(orderDao);
+        ReflectionTestUtils.setField(controller, "orderService", orderService);
+        ReflectionTestUtils.setField(controller, "userNotificationWebSocketHandler", webSocketHandler);
+        Response<Boolean> response = controller.mockPay(MockPayRequestDTO.builder()
+                .userId("u1")
+                .orderId("o1")
+                .password("111111")
+                .build());
+
+        assertEquals("0000", response.getCode());
+        verify(orderService).changeOrderPaySuccess(eq("o1"), any(Date.class));
+        verify(webSocketHandler).sendToUsers(eq(Collections.singleton("u1")), contains("PAY_SUCCESS"));
+    }
+
+    @Test
+    public void mockPay_doesNotPushPaySuccessDirectlyForPlainOrder() {
+        IOrderDao orderDao = mock(IOrderDao.class);
+        IOrderService orderService = mock(IOrderService.class);
+        UserNotificationWebSocketHandler webSocketHandler = mock(UserNotificationWebSocketHandler.class);
+        when(orderDao.queryOrderByOrderId("o1")).thenReturn(PayOrder.builder()
+                .userId("u1")
+                .orderId("o1")
+                .status("PAY_WAIT")
+                .marketType(0)
+                .build());
+
+        PurchaseHistoryController controller = new PurchaseHistoryController(orderDao);
+        ReflectionTestUtils.setField(controller, "orderService", orderService);
+        ReflectionTestUtils.setField(controller, "userNotificationWebSocketHandler", webSocketHandler);
+        Response<Boolean> response = controller.mockPay(MockPayRequestDTO.builder()
+                .userId("u1")
+                .orderId("o1")
+                .password("111111")
+                .build());
+
+        assertEquals("0000", response.getCode());
+        verify(orderService).changeOrderPaySuccess(eq("o1"), any(Date.class));
+        verify(webSocketHandler, never()).sendToUsers(any(), contains("PAY_SUCCESS"));
+    }
+
+    @Test
+    public void mockPay_rejectsWrongPassword() {
+        IOrderDao orderDao = mock(IOrderDao.class);
+        IOrderService orderService = mock(IOrderService.class);
+
+        PurchaseHistoryController controller = new PurchaseHistoryController(orderDao);
+        ReflectionTestUtils.setField(controller, "orderService", orderService);
+        Response<Boolean> response = controller.mockPay(MockPayRequestDTO.builder()
+                .userId("u1")
+                .orderId("o1")
+                .password("123456")
+                .build());
+
+        assertEquals("0002", response.getCode());
+        verify(orderService, never()).changeOrderPaySuccess(any(String.class), any(Date.class));
     }
 }

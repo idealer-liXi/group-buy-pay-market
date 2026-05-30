@@ -40,15 +40,11 @@ public enum RefundTypeEnumVO {
     private String strategy;
 
     public static RefundTypeEnumVO getRefundTypeEnumVOByCode(String code) {
-        switch (code) {
-            case "unpaid_unlock":
-                return UNPAID_UNLOCK;
-            case "paid_unformed":
-                return PAID_UNFORMED;
-            case "paid_formed":
-                return PAID_FORMED;
-        }
-        throw new RuntimeException("退单类型枚举值不存在: " + code);
+        return Arrays.stream(values())
+                .filter(refundTypeEnumVO -> refundTypeEnumVO.getCode().equalsIgnoreCase(code)
+                        || refundTypeEnumVO.name().equalsIgnoreCase(code))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("退单类型枚举值不存在: " + code));
     }
 
     public abstract boolean matches(GroupBuyOrderEnumVO groupBuyOrderEnumVO, TradeOrderStatusEnumVO tradeOrderStatusEnumVO);

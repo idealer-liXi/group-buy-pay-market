@@ -5,6 +5,7 @@ import { getCookie } from '../lib/cookie'
 const LoginPage = () => import('../pages/LoginPage.vue')
 const GoodsListPage = () => import('../pages/GoodsListPage.vue')
 const GoodsPage = () => import('../pages/GoodsPage.vue')
+const MockPayPage = () => import('../pages/MockPayPage.vue')
 const PurchaseHistoryPage = () => import('../pages/PurchaseHistoryPage.vue')
 const AdminLoginPage = () => import('../pages/admin/AdminLoginPage.vue')
 const AdminGoodsPage = () => import('../pages/admin/AdminGoodsPage.vue')
@@ -20,6 +21,7 @@ const router = createRouter({
     { path: '/login', component: LoginPage },
     { path: '/goods', component: GoodsListPage },
     { path: '/goods/:goodsId', component: GoodsPage },
+    { path: '/mock-pay/:orderId', component: MockPayPage },
     { path: '/orders', component: PurchaseHistoryPage },
     { path: '/admin/login', component: AdminLoginPage },
     { path: '/admin', redirect: '/admin/goods' },
