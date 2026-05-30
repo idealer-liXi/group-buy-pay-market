@@ -23,8 +23,20 @@
           </div>
         </div>
         <div class="product-info">
-          <div class="product-badge">拼团优惠</div>
-          <h1 class="product-title">{{ currentGoodsName }}</h1>
+          <div class="meta-row">
+            <div class="product-badge">拼团优惠</div>
+            <span v-if="marketData.activity" class="activity-kicker">当前活动：{{ marketData.activity.activityName }}</span>
+          </div>
+          <div class="title-row">
+            <h1 class="product-title">{{ currentGoodsName }}</h1>
+            <strong v-if="marketData.activity" class="activity-summary">{{ groupTypeText(marketData.activity.groupType) }}</strong>
+          </div>
+          <div v-if="marketData.activity" class="activity-pills">
+            <span class="activity-pill highlight">{{ marketData.activity.target }}人成团</span>
+            <span class="activity-pill">{{ marketData.activity.validTime }}分钟有效</span>
+            <span class="activity-pill">{{ activityLimitShortText }}</span>
+            <span class="activity-pill hot">{{ marketData.teamStatistic.allTeamCount }}团进行中</span>
+          </div>
           <p class="promo-copy">
             🔥 直降 ¥{{ marketData.goods.deductionPrice.toFixed(0) }}，{{ marketData.teamStatistic.allTeamUserCount }}人正在抢购，参与马上到手
           </p>
@@ -67,6 +79,17 @@
         @confirm="submitPayForm"
         @cancel="closePayDialog"
       />
+      <PayConfirmDialog
+        :open="noticeDialog.open"
+        :amount="0"
+        :title="noticeDialog.title"
+        :message="noticeDialog.message"
+        :confirm-text="noticeDialog.confirmText"
+        :show-cancel="false"
+        icon="!"
+        @confirm="closeNoticeDialog"
+        @cancel="closeNoticeDialog"
+      />
     </div>
 
     <div v-else-if="marketData && isPlainGoods" class="goods-container">
@@ -92,8 +115,12 @@
           </div>
         </div>
         <div class="product-info">
-          <div class="product-badge product-badge-muted">普通商品</div>
-          <h1 class="product-title">{{ currentGoodsName }}</h1>
+          <div class="meta-row">
+            <div class="product-badge product-badge-muted">普通商品</div>
+          </div>
+          <div class="title-row">
+            <h1 class="product-title">{{ currentGoodsName }}</h1>
+          </div>
           <p class="promo-copy promo-copy-muted">当前商品暂未配置拼团活动</p>
           <div class="price-card">
             <div class="price-row">
@@ -116,6 +143,17 @@
         :amount="payDialog.amount"
         @confirm="submitPayForm"
         @cancel="closePayDialog"
+      />
+      <PayConfirmDialog
+        :open="noticeDialog.open"
+        :amount="0"
+        :title="noticeDialog.title"
+        :message="noticeDialog.message"
+        :confirm-text="noticeDialog.confirmText"
+        :show-cancel="false"
+        icon="!"
+        @confirm="closeNoticeDialog"
+        @cancel="closeNoticeDialog"
       />
     </div>
 
@@ -149,7 +187,8 @@ const router = useRouter()
 const marketData = ref<GoodsMarketResponse | null>(null)
 const skuList = ref<SkuItem[]>([])
 const pageError = ref('')
-const payDialog = ref({ open: false, amount: 0, html: '' })
+const payDialog = ref({ open: false, amount: 0, marketType: 0, teamId: null as string | null })
+const noticeDialog = ref({ open: false, title: '', message: '', confirmText: '知道了', payFormHtml: '' })
 const currentTimeMs = ref(Date.now())
 const selectedImageIndex = ref(0)
 let countdownTimer: ReturnType<typeof window.setInterval> | null = null
@@ -170,6 +209,11 @@ const currentGalleryImageUrl = computed(() => galleryImageUrls.value[selectedIma
 const isPlainGoods = computed(() => marketData.value?.activityId == null || marketData.value?.isVisible === false)
 
 const canJoinGroup = computed(() => marketData.value?.isEnable !== false)
+
+const activityLimitShortText = computed(() => {
+  const tagName = marketData.value?.activity?.tagName
+  return tagName ? `仅 ${tagName} 可参与` : '不限人群'
+})
 
 const teamSummaries = computed(() => {
   if (!marketData.value) {
@@ -235,17 +279,32 @@ async function handleJoinTeam(teamId: string) {
 }
 
 async function requestPay(marketType: number, teamId: string | null) {
+  if (!marketData.value) {
+    return
+  }
+
+  if (marketType === 1 && !canJoinGroup.value) {
+    showNotice('暂不可参与', '当前拼团活动仅限指定人群参与')
+    return
+  }
+
+  const goods = marketData.value.goods
+  payDialog.value = {
+    open: true,
+    amount: marketType === 1 ? goods.payPrice : goods.originalPrice,
+    marketType,
+    teamId
+  }
+}
+
+async function submitPayForm() {
   const loginToken = getCookie('loginToken')
   if (!loginToken || !marketData.value) {
     return
   }
 
-  if (marketType === 1 && !canJoinGroup.value) {
-    window.alert('当前拼团活动仅限指定人群参与')
-    return
-  }
-
   const goods = marketData.value.goods
+  const { marketType, teamId } = payDialog.value
   const activityId = marketType === 1 && marketData.value.activityId != null ? marketData.value.activityId : undefined
   const result = await createPayOrder({
     userId: loginToken,
@@ -256,31 +315,41 @@ async function requestPay(marketType: number, teamId: string | null) {
   })
 
   if (result.code === '0000') {
-    payDialog.value = {
-      open: true,
-      amount: marketType === 1 ? goods.payPrice : goods.originalPrice,
-      html: result.data
+    if (result.data.reusedPayOrder) {
+      closePayDialog()
+      showNotice('已有未支付订单', '该商品已有未支付订单，请先完成这笔订单的支付', '去支付', result.data.payUrl)
+      return
     }
+    injectPayFormHtml(result.data.payUrl)?.submit()
+    closePayDialog()
   } else {
-    window.alert(result.info || '下单失败，请稍后重试')
+    closePayDialog()
+    showNotice('下单失败', result.info || '下单失败，请稍后重试')
   }
-}
-
-function submitPayForm() {
-  injectPayFormHtml(payDialog.value.html)
-  const form = document.querySelector('form') as HTMLFormElement | null
-  if (form) {
-    form.submit()
-  }
-  closePayDialog()
 }
 
 function closePayDialog() {
-  payDialog.value = { open: false, amount: 0, html: '' }
+  payDialog.value = { open: false, amount: 0, marketType: 0, teamId: null }
+}
+
+function showNotice(title: string, message: string, confirmText = '知道了', payFormHtml = '') {
+  noticeDialog.value = { open: true, title, message, confirmText, payFormHtml }
+}
+
+function closeNoticeDialog() {
+  const payFormHtml = noticeDialog.value.payFormHtml
+  noticeDialog.value = { open: false, title: '', message: '', confirmText: '知道了', payFormHtml: '' }
+  if (payFormHtml) {
+    injectPayFormHtml(payFormHtml)?.submit()
+  }
 }
 
 function selectImage(index: number) {
   selectedImageIndex.value = index
+}
+
+function groupTypeText(groupType: number) {
+  return groupType === 0 ? '自动成团' : '达成目标拼团'
 }
 
 function showPrevImage() {
@@ -331,6 +400,7 @@ function showNextImage() {
 .hero {
   display: grid;
   grid-template-columns: 340px 1fr;
+  align-items: start;
   gap: 24px;
   margin-bottom: 24px;
 }
@@ -346,12 +416,12 @@ function showNextImage() {
 
 .carousel-main {
   position: relative;
-  min-height: 320px;
+  height: 320px;
   display: flex;
 }
 
 .carousel-main :deep(.goods-name-cover) {
-  min-height: 320px;
+  height: 100%;
 }
 
 .carousel-btn {
@@ -421,12 +491,15 @@ function showNextImage() {
 }
 
 .product-info {
+  box-sizing: border-box;
   border-radius: 16px;
   background: #fff;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
-  padding: 28px;
+  padding: 22px 28px;
+  height: 320px;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
 }
 
 .product-badge {
@@ -438,11 +511,17 @@ function showNextImage() {
   padding: 4px 12px;
   border-radius: 20px;
   width: fit-content;
-  margin-bottom: 16px;
 }
 
 .product-badge-muted {
   background: linear-gradient(135deg, #64748b, #94a3b8);
+}
+
+.meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
 }
 
 .product-title {
@@ -450,13 +529,29 @@ function showNextImage() {
   font-weight: 700;
   color: #111827;
   line-height: 1.4;
-  margin-bottom: 12px;
+  margin: 0;
+}
+
+.title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 8px;
+}
+
+.activity-summary {
+  max-width: 320px;
+  color: #ea580c;
+  font-size: 14px;
+  white-space: nowrap;
+  text-align: right;
 }
 
 .promo-copy {
   color: #dc2626;
   font-size: 14px;
-  margin-bottom: 20px;
+  margin: 0;
 }
 
 .promo-copy-muted {
@@ -466,18 +561,24 @@ function showNextImage() {
 .price-card {
   background: linear-gradient(135deg, #fef2f2, #fff1f2);
   border-radius: 12px;
-  padding: 20px;
-  margin-top: auto;
+  padding: 12px 20px;
+  margin-top: 0;
+  border: 1px solid rgba(248, 113, 113, 0.18);
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  min-height: 72px;
 }
 
 .price-row {
-  display: flex;
-  align-items: baseline;
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
   gap: 12px;
 }
 
 .price-row.secondary {
-  margin-top: 8px;
+  align-items: center;
 }
 
 .price-label {
@@ -489,6 +590,7 @@ function showNextImage() {
 .pay-price {
   font-size: 36px;
   font-weight: 700;
+  line-height: 1;
   color: #dc2626;
 }
 
@@ -496,17 +598,57 @@ function showNextImage() {
   color: #9ca3af;
   text-decoration: line-through;
   font-size: 16px;
+  line-height: 1;
 }
 
 .save-tag {
   display: inline-block;
-  margin-top: 12px;
   background: #dc2626;
   color: #fff;
   font-size: 12px;
   font-weight: 600;
   padding: 3px 10px;
   border-radius: 4px;
+  white-space: nowrap;
+}
+
+.activity-kicker {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #9a3412;
+  font-size: 13px;
+  text-align: right;
+}
+
+.activity-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.activity-pill {
+  border: 1px solid rgba(251, 146, 60, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+}
+
+.activity-pill.highlight {
+  background: #fed7aa;
+  border-color: #fdba74;
+  color: #7c2d12;
+}
+
+.activity-pill.hot {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #b91c1c;
 }
 
 .teams-section {
@@ -629,12 +771,42 @@ function showNextImage() {
 
   .carousel-main,
   .carousel-main :deep(.goods-name-cover) {
-    min-height: 280px;
+    height: 280px;
   }
 
   .product-info,
   .teams-section {
     padding: 20px;
+  }
+
+  .product-info {
+    height: auto;
+    gap: 14px;
+  }
+
+  .title-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .meta-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .activity-summary {
+    max-width: none;
+    text-align: left;
+  }
+
+  .activity-kicker {
+    text-align: left;
+  }
+
+  .price-card {
+    flex-wrap: wrap;
+    gap: 12px 18px;
   }
 
   .teams-header {

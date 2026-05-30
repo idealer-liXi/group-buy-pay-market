@@ -17,9 +17,12 @@ public class EventPublisher {
     @Value("${spring.rabbitmq.config.producer.topic_order_pay_success.exchange}")
     private String exchangeName;
 
+    @Value("${spring.rabbitmq.config.producer.exchange}")
+    private String groupBuyExchangeName;
+
     public void publisher(String routingKey, String message){
         try{
-            rabbitTemplate.convertAndSend(exchangeName, routingKey, message, m -> {
+            rabbitTemplate.convertAndSend(resolveExchange(routingKey), routingKey, message, m -> {
                 m.getMessageProperties().setDeliveryMode(MessageDeliveryMode.PERSISTENT);
                 return m;
             });
@@ -32,6 +35,13 @@ public class EventPublisher {
 
     public void publish(String routingKey, String message) {
         publisher(routingKey, message);
+    }
+
+    private String resolveExchange(String routingKey) {
+        if ("topic.team_success".equals(routingKey) || "topic.team_refund".equals(routingKey)) {
+            return groupBuyExchangeName;
+        }
+        return exchangeName;
     }
 
 }

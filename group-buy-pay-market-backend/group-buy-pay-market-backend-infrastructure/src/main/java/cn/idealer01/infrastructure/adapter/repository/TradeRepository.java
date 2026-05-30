@@ -11,6 +11,7 @@ import cn.idealer01.infrastructure.dao.IGroupBuyActivityDao;
 import cn.idealer01.infrastructure.dao.IGroupBuyOrderDao;
 import cn.idealer01.infrastructure.dao.IGroupBuyOrderListDao;
 import cn.idealer01.infrastructure.dao.INotifyTaskDao;
+import cn.idealer01.infrastructure.dao.IOrderDao;
 import cn.idealer01.infrastructure.dao.po.GroupBuyActivity;
 import cn.idealer01.infrastructure.dao.po.GroupBuyOrder;
 import cn.idealer01.infrastructure.dao.po.GroupBuyOrderList;
@@ -47,6 +48,8 @@ public class TradeRepository implements ITradeRepository {
     private IGroupBuyActivityDao groupBuyActivityDao;
     @Resource
     private INotifyTaskDao notifyTaskDao;
+    @Resource
+    private IOrderDao orderDao;
     @Resource
     private DCCService dccService;
     @Value("${spring.rabbitmq.config.producer.topic_team_success.routing_key}")
@@ -277,12 +280,10 @@ public class TradeRepository implements ITradeRepository {
             notifyTask.setNotifyStatus(0);
             notifyTask.setUuid(groupBuyTeamEntity.getTeamId() + Constants.UNDERLINE + TaskNotifyCategoryEnumVO.TRADE_SETTLEMENT.getCode() + Constants.UNDERLINE + tradePaySuccessEntity.getOutTradeNo());
 
-            notifyTask.setParameterJson(JSON.toJSONString(new HashMap<String, Object>(){
-                {
-                    put("teamId", groupBuyTeamEntity.getTeamId());
-                    put("outTradeNoList", outTradeNoList);
-                }
-            }));
+            Map<String, Object> parameterMap = new HashMap<>();
+            parameterMap.put("teamId", groupBuyTeamEntity.getTeamId());
+            parameterMap.put("outTradeNoList", outTradeNoList);
+            notifyTask.setParameterJson(JSON.toJSONString(parameterMap));
 
             notifyTaskDao.insert(notifyTask);
 
@@ -417,6 +418,8 @@ public class TradeRepository implements ITradeRepository {
             throw new AppException(ResponseCode.UPDATE_ZERO);
         }
 
+        orderDao.changeOrderClose(tradeRefundOrderEntity.getOutTradeNo());
+
         //2.根据teamId,lockCount修改订单锁单量
         String teamId = tradeRefundOrderEntity.getTeamId();
         GroupBuyOrder groupBuyOrderReq = new GroupBuyOrder();
@@ -430,6 +433,14 @@ public class TradeRepository implements ITradeRepository {
         }
 
         //3.插入回调任务
+        Map<String, Object> parameterMap = new HashMap<>();
+        parameterMap.put("type", RefundTypeEnumVO.UNPAID_UNLOCK.getCode());
+        parameterMap.put("teamId", teamId);
+        parameterMap.put("userId", userId);
+        parameterMap.put("activityId", tradeRefundOrderEntity.getActivityId());
+        parameterMap.put("outTradeNo", tradeRefundOrderEntity.getOutTradeNo());
+        parameterMap.put("orderId", orderId);
+
         NotifyTask notifyTask = NotifyTask.builder()
                 .uuid(teamId + Constants.UNDERLINE + RefundTypeEnumVO.UNPAID_UNLOCK + Constants.UNDERLINE + orderId)
                 .teamId(teamId)
@@ -439,16 +450,7 @@ public class TradeRepository implements ITradeRepository {
                 .notifyCategory(TaskNotifyCategoryEnumVO.TRADE_UNPAID2REFUND.getCode())
                 .notifyCount(0)
                 .notifyStatus(0)
-                .parameterJson(JSON.toJSONString(new HashMap<String, Object>(){
-                    {
-                        put("type", RefundTypeEnumVO.UNPAID_UNLOCK.getCode());
-                        put("teamId", teamId);
-                        put("userId", userId);
-                        put("activityId", tradeRefundOrderEntity.getActivityId());
-                        put("outTradeNo", tradeRefundOrderEntity.getOutTradeNo());
-                        put("orderId", orderId);
-                    }
-                }))
+                .parameterJson(JSON.toJSONString(parameterMap))
                 .build();
 
         notifyTaskDao.insert(notifyTask);
@@ -500,6 +502,14 @@ public class TradeRepository implements ITradeRepository {
         }
 
         //4.构建回调任务
+        Map<String, Object> parameterMap = new HashMap<>();
+        parameterMap.put("type", RefundTypeEnumVO.PAID_UNFORMED);
+        parameterMap.put("userId", userId);
+        parameterMap.put("teamId", teamId);
+        parameterMap.put("orderId", orderId);
+        parameterMap.put("activityId", activityId);
+        parameterMap.put("outTradeNo", tradeRefundOrderEntity.getOutTradeNo());
+
         NotifyTask notifyTask = NotifyTask.builder()
                 .uuid(tradeRefundOrderEntity.getTeamId() + Constants.UNDERLINE + TaskNotifyCategoryEnumVO.TRADE_PAID2REFUND + Constants.UNDERLINE + tradeRefundOrderEntity.getOrderId())
                 .activityId(activityId)
@@ -509,16 +519,7 @@ public class TradeRepository implements ITradeRepository {
                 .notifyCategory(TaskNotifyCategoryEnumVO.TRADE_PAID2REFUND.getCode())
                 .notifyCount(0)
                 .notifyStatus(0)
-                .parameterJson(JSON.toJSONString(new HashMap<String, Object>(){
-                    {
-                        put("type", RefundTypeEnumVO.PAID_UNFORMED);
-                        put("userId", userId);
-                        put("teamId", teamId);
-                        put("orderId", orderId);
-                        put("activityId", activityId);
-                        put("outTradeNo", tradeRefundOrderEntity.getOutTradeNo());
-                    }
-                }))
+                .parameterJson(JSON.toJSONString(parameterMap))
                 .build();
 
         notifyTaskDao.insert(notifyTask);
@@ -590,16 +591,14 @@ public class TradeRepository implements ITradeRepository {
                 .uuid(tradeRefundOrderEntity.getTeamId() + Constants.UNDERLINE + TaskNotifyCategoryEnumVO.TRADE_PAID_TEAM2REFUND.getCode() + Constants.UNDERLINE + tradeRefundOrderEntity.getOrderId())
                 .build();
 
-        notifyTask.setParameterJson(JSON.toJSONString(new HashMap<String, Object>(){
-            {
-                put("type", RefundTypeEnumVO.PAID_FORMED);
-                put("userId", userId);
-                put("teamId", teamId);
-                put("orderId", orderId);
-                put("activityId", activityId);
-                put("outTradeNo", tradeRefundOrderEntity.getOutTradeNo());
-            }
-        }));
+        Map<String, Object> parameterMap = new HashMap<>();
+        parameterMap.put("type", RefundTypeEnumVO.PAID_FORMED);
+        parameterMap.put("userId", userId);
+        parameterMap.put("teamId", teamId);
+        parameterMap.put("orderId", orderId);
+        parameterMap.put("activityId", activityId);
+        parameterMap.put("outTradeNo", tradeRefundOrderEntity.getOutTradeNo());
+        notifyTask.setParameterJson(JSON.toJSONString(parameterMap));
 
         notifyTaskDao.insert(notifyTask);
 

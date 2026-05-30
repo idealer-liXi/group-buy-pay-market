@@ -15,7 +15,7 @@ public class AliPayConfig {
     @Bean("alipayClient")
     public AlipayClient alipayClient(AliPayConfigProperties properties) {
         return new DefaultAlipayClient(
-                properties.getGatewayUrl(),
+                normalizeGatewayUrl(properties.getGatewayUrl()),
                 properties.getAppId(),
                 properties.getMerchantPrivateKey(),
                 properties.getFormat(),
@@ -23,5 +23,14 @@ public class AliPayConfig {
                 properties.getAlipayPublicKey(),
                 properties.getSignType()
         );
+    }
+
+    public static String normalizeGatewayUrl(String gatewayUrl) {
+        if (gatewayUrl == null) {
+            return null;
+        }
+        String trimmedGatewayUrl = gatewayUrl.trim();
+        int firstWhitespace = trimmedGatewayUrl.indexOf(' ');
+        return firstWhitespace < 0 ? trimmedGatewayUrl : trimmedGatewayUrl.substring(0, firstWhitespace);
     }
 }

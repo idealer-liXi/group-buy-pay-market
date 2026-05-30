@@ -50,4 +50,25 @@ public class NoPayNotifyOrderJobTest {
 
         verify(orderService, never()).changeOrderPaySuccess(any(), any());
     }
+
+    @Test
+    public void shouldKeepLocalOrderPayableWhenAlipayTradeDoesNotExist() throws Exception {
+        IOrderService orderService = mock(IOrderService.class);
+        AlipayClient alipayClient = mock(AlipayClient.class);
+        AlipayTradeQueryResponse response = new AlipayTradeQueryResponse();
+        response.setCode("40004");
+        response.setSubCode("ACQ.TRADE_NOT_EXIST");
+
+        when(orderService.queryNoPayNotifyOrder()).thenReturn(Collections.singletonList("order-1"));
+        when(alipayClient.execute(any(AlipayTradeQueryRequest.class))).thenReturn(response);
+
+        NoPayNotifyOrderJob job = new NoPayNotifyOrderJob();
+        ReflectionTestUtils.setField(job, "orderService", orderService);
+        ReflectionTestUtils.setField(job, "alipayClient", alipayClient);
+
+        job.exec();
+
+        verify(orderService, never()).changeOrderClose(any());
+        verify(orderService, never()).changeOrderPaySuccess(any(), any());
+    }
 }

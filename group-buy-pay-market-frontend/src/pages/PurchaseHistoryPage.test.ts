@@ -5,10 +5,33 @@ import PurchaseHistoryPage from './PurchaseHistoryPage.vue'
 
 const mocks = vi.hoisted(() => ({
   injectPayFormHtml: vi.fn(),
+  queryPurchaseHistory: vi.fn().mockResolvedValue({
+    code: '0000',
+    data: {
+      recordList: [
+        { orderId: 'o1', outTradeNo: 'o1', productId: '9890001', productName: '拼团商品', status: 'PAY_WAIT', statusType: 'WAIT_PAY', purchaseType: 'GROUP_BUY', totalAmount: 99, payAmount: 79, payUrl: '<form id="pay"></form>' },
+        { orderId: 'o2', outTradeNo: 'o2', productId: '9890002', productName: '待成团商品', status: 'PAY_SUCCESS', statusType: 'GROUP_WAIT', purchaseType: 'GROUP_BUY', totalAmount: 89.9, payAmount: 79.9 },
+        { orderId: 'o3', outTradeNo: 'o3', productId: '9890005', productName: '普通商品', status: 'PAY_SUCCESS', statusType: 'GROUP_SUCCESS', purchaseType: 'PLAIN', totalAmount: 19.9, payAmount: 19.9 },
+        { orderId: 'o4', outTradeNo: 'o4', productId: '9890006', productName: '关闭商品', status: 'CLOSE', statusType: 'CLOSED', purchaseType: 'PLAIN', totalAmount: 29.9, payAmount: 29.9 },
+        { orderId: 'o5', outTradeNo: 'o5', productId: '9890007', productName: '拼团成功商品', status: 'MARKET', statusType: 'GROUP_SUCCESS', purchaseType: 'GROUP_BUY', totalAmount: 39.9, payAmount: 29.9 },
+        { orderId: 'o6', outTradeNo: 'o6', productId: '9890008', productName: '普通待付款商品', status: 'PAY_WAIT', statusType: 'WAIT_PAY', purchaseType: 'PLAIN', totalAmount: 49.9, payAmount: 49.9, payUrl: '<form id="plain-pay"></form>' }
+      ]
+    }
+  }),
+  cancelOrder: vi.fn().mockResolvedValue({
+    code: '0000',
+    info: '退单成功',
+    data: true
+  }),
   refundMarketPayOrder: vi.fn().mockResolvedValue({
     code: '0000',
     info: '成功',
     data: { userId: 'user-token', orderId: 'o1', teamId: 't1', code: '0000', info: '退单成功' }
+  }),
+  refundPaidOrder: vi.fn().mockResolvedValue({
+    code: '0000',
+    info: '退款成功',
+    data: true
   })
 }))
 
@@ -31,19 +54,10 @@ vi.mock('../lib/cookie', () => ({
 }))
 
 vi.mock('../lib/order', () => ({
-  queryPurchaseHistory: vi.fn().mockResolvedValue({
-    code: '0000',
-    data: {
-      recordList: [
-        { orderId: 'o1', outTradeNo: 'o1', productId: '9890001', productName: '拼团商品', status: 'PAY_WAIT', statusType: 'WAIT_PAY', purchaseType: 'GROUP_BUY', totalAmount: 99, payAmount: 79, payUrl: '<form id="pay"></form>' },
-        { orderId: 'o2', outTradeNo: 'o2', productId: '9890002', productName: '待成团商品', status: 'PAY_SUCCESS', statusType: 'GROUP_WAIT', purchaseType: 'GROUP_BUY', totalAmount: 89.9, payAmount: 79.9 },
-        { orderId: 'o3', outTradeNo: 'o3', productId: '9890005', productName: '普通商品', status: 'PAY_SUCCESS', statusType: 'GROUP_SUCCESS', purchaseType: 'PLAIN', totalAmount: 19.9, payAmount: 19.9 },
-        { orderId: 'o4', outTradeNo: 'o4', productId: '9890006', productName: '关闭商品', status: 'CLOSE', statusType: 'CLOSED', purchaseType: 'PLAIN', totalAmount: 29.9, payAmount: 29.9 },
-        { orderId: 'o5', outTradeNo: 'o5', productId: '9890007', productName: '拼团成功商品', status: 'MARKET', statusType: 'GROUP_SUCCESS', purchaseType: 'GROUP_BUY', totalAmount: 39.9, payAmount: 29.9 }
-      ]
-    }
-  }),
-  refundMarketPayOrder: mocks.refundMarketPayOrder
+  queryPurchaseHistory: mocks.queryPurchaseHistory,
+  cancelOrder: mocks.cancelOrder,
+  refundMarketPayOrder: mocks.refundMarketPayOrder,
+  refundPaidOrder: mocks.refundPaidOrder
 }))
 
 vi.mock('../lib/pay', () => ({
@@ -81,7 +95,7 @@ describe('PurchaseHistoryPage', () => {
     await wrapper.get('.continue-pay-btn').trigger('click')
     expect(mocks.injectPayFormHtml).toHaveBeenCalledWith('<form id="pay"></form>')
 
-    expect(wrapper.findAll('.refund-btn')).toHaveLength(3)
+    expect(wrapper.findAll('.refund-btn')).toHaveLength(5)
     expect(wrapper.text()).toContain('普通商品')
     await wrapper.get('.refund-btn').trigger('click')
     expect(mocks.refundMarketPayOrder).toHaveBeenCalledWith({
@@ -91,11 +105,32 @@ describe('PurchaseHistoryPage', () => {
       channel: 'c01'
     })
     await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(wrapper.text()).toContain('退单成功')
+    expect(wrapper.text()).not.toContain('退单成功')
 
-    socketInstances[0].emit({ type: 'GROUP_SUCCESS', teamId: 't1', message: '拼团已完成', outTradeNoList: ['o2'] })
+    await wrapper.findAll('.refund-btn')[2].trigger('click')
+    expect(mocks.refundPaidOrder).toHaveBeenCalledWith({
+      userId: 'user-token',
+      orderId: 'o3'
+    })
+    expect(mocks.refundMarketPayOrder).not.toHaveBeenCalledWith({
+      userId: 'user-token',
+      outTradeNo: 'o3',
+      source: 's01',
+      channel: 'c01'
+    })
+
+    await wrapper.findAll('.refund-btn')[4].trigger('click')
+    expect(mocks.cancelOrder).toHaveBeenCalledWith({
+      userId: 'user-token',
+      orderId: 'o6'
+    })
+
+    window.dispatchEvent(new CustomEvent('gbpm:user-notification', {
+      detail: { type: 'GROUP_SUCCESS', teamId: 't1', message: '拼团已完成', outTradeNoList: ['o2'] }
+    }))
     await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(wrapper.text()).toContain('拼团已完成')
+    expect(wrapper.text()).not.toContain('拼团已完成')
+    expect(mocks.queryPurchaseHistory).toHaveBeenCalledWith('user-token')
 
     await wrapper.get('[data-filter="CLOSED"]').trigger('click')
     expect(wrapper.text()).toContain('关闭商品')

@@ -7,8 +7,10 @@ import cn.idealer01.api.response.Response;
 import cn.idealer01.infrastructure.dao.IGroupBuyActivityDao;
 import cn.idealer01.infrastructure.dao.IGroupBuyDiscountDao;
 import cn.idealer01.infrastructure.dao.po.GroupBuyDiscount;
+import cn.idealer01.infrastructure.redis.IRedisService;
 import cn.idealer01.types.enums.ResponseCode;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,10 +36,17 @@ public class AdminDiscountController {
     private final IGroupBuyDiscountDao discountDao;
     @SuppressWarnings("unused")
     private final IGroupBuyActivityDao activityDao;
+    private final IRedisService redisService;
 
     public AdminDiscountController(IGroupBuyDiscountDao discountDao, IGroupBuyActivityDao activityDao) {
+        this(discountDao, activityDao, null);
+    }
+
+    @Autowired
+    public AdminDiscountController(IGroupBuyDiscountDao discountDao, IGroupBuyActivityDao activityDao, IRedisService redisService) {
         this.discountDao = discountDao;
         this.activityDao = activityDao;
+        this.redisService = redisService;
     }
 
     @GetMapping
@@ -54,7 +63,6 @@ public class AdminDiscountController {
                                         .discountType(item.getDiscountType())
                                         .marketPlan(item.getMarketPlan())
                                         .marketExpr(item.getMarketExpr())
-                                        .tagId(item.getTagId())
                                         .status(item.getStatus())
                                         .build()).collect(Collectors.toList()))
                         .build())
@@ -87,7 +95,6 @@ public class AdminDiscountController {
                 .discountType(request.getDiscountType())
                 .marketPlan(request.getMarketPlan())
                 .marketExpr(request.getMarketExpr())
-                .tagId(request.getTagId())
                 .status(0)
                 .build());
         return Response.<Void>builder().code(ResponseCode.SUCCESS.getCode()).info(ResponseCode.SUCCESS.getInfo()).build();
@@ -106,14 +113,21 @@ public class AdminDiscountController {
                 .discountType(request.getDiscountType())
                 .marketPlan(request.getMarketPlan())
                 .marketExpr(request.getMarketExpr())
-                .tagId(request.getTagId())
                 .build());
+        evictDiscountCache(discountId);
         return Response.<Void>builder().code(ResponseCode.SUCCESS.getCode()).info(ResponseCode.SUCCESS.getInfo()).build();
     }
 
     @PutMapping("/{discountId}/status")
     public Response<Void> updateStatus(@PathVariable String discountId, @RequestBody AdminStatusUpdateRequestDTO request) {
         discountDao.updateGroupBuyDiscountStatus(discountId, request.getStatus());
+        evictDiscountCache(discountId);
         return Response.<Void>builder().code(ResponseCode.SUCCESS.getCode()).info(ResponseCode.SUCCESS.getInfo()).build();
+    }
+
+    private void evictDiscountCache(String discountId) {
+        if (redisService != null && StringUtils.isNotBlank(discountId)) {
+            redisService.remove(GroupBuyDiscount.cacheRedisKey(discountId));
+        }
     }
 }

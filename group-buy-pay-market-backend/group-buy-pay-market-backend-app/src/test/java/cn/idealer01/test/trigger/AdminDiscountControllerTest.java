@@ -1,10 +1,13 @@
 package cn.idealer01.test.trigger;
 
 import cn.idealer01.api.dto.AdminDiscountListResponseDTO;
+import cn.idealer01.api.dto.AdminDiscountUpsertRequestDTO;
+import cn.idealer01.api.dto.AdminStatusUpdateRequestDTO;
 import cn.idealer01.api.response.Response;
 import cn.idealer01.infrastructure.dao.IGroupBuyActivityDao;
 import cn.idealer01.infrastructure.dao.IGroupBuyDiscountDao;
 import cn.idealer01.infrastructure.dao.po.GroupBuyDiscount;
+import cn.idealer01.infrastructure.redis.IRedisService;
 import cn.idealer01.trigger.http.AdminDiscountController;
 import org.junit.Test;
 
@@ -72,5 +75,37 @@ public class AdminDiscountControllerTest {
 
         assertEquals("0002", response.getCode());
         verify(discountDao, never()).insertGroupBuyDiscount(any());
+    }
+
+    @Test
+    public void updateDiscount_evictsCachedDiscountConfig() {
+        IGroupBuyDiscountDao discountDao = mock(IGroupBuyDiscountDao.class);
+        IRedisService redisService = mock(IRedisService.class);
+        AdminDiscountController controller = new AdminDiscountController(discountDao, mock(IGroupBuyActivityDao.class), redisService);
+
+        Response<Void> response = controller.updateDiscount("1", AdminDiscountUpsertRequestDTO.builder()
+                .discountName("直减20元")
+                .discountDesc("活动直减20元")
+                .discountType(1)
+                .marketPlan("ZJ")
+                .marketExpr("20")
+                .build());
+
+        assertEquals("0000", response.getCode());
+        verify(discountDao).updateGroupBuyDiscount(any());
+        verify(redisService).remove(GroupBuyDiscount.cacheRedisKey("1"));
+    }
+
+    @Test
+    public void updateStatus_evictsCachedDiscountConfig() {
+        IGroupBuyDiscountDao discountDao = mock(IGroupBuyDiscountDao.class);
+        IRedisService redisService = mock(IRedisService.class);
+        AdminDiscountController controller = new AdminDiscountController(discountDao, mock(IGroupBuyActivityDao.class), redisService);
+
+        Response<Void> response = controller.updateStatus("1", new AdminStatusUpdateRequestDTO(1));
+
+        assertEquals("0000", response.getCode());
+        verify(discountDao).updateGroupBuyDiscountStatus("1", 1);
+        verify(redisService).remove(GroupBuyDiscount.cacheRedisKey("1"));
     }
 }

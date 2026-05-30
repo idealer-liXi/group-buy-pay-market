@@ -1,10 +1,7 @@
 package cn.idealer01.config;
 
-import cn.idealer01.trigger.listener.OrderPaySuccessListener;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.eventbus.EventBus;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -27,11 +24,4 @@ public class GuavaConfig {
                 .build();
     }
 
-    @Bean
-    @ConditionalOnBean(OrderPaySuccessListener.class)
-    public EventBus eventBusListener(OrderPaySuccessListener listener) {
-        EventBus eventBus = new EventBus();
-        eventBus.register(listener);
-        return eventBus;
-    }
 }

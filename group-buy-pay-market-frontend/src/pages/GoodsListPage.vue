@@ -16,8 +16,13 @@
         <GoodsNameCover :title="item.goodsName" :image-url="item.coverImageUrl" size="card" />
         <div class="goods-info">
           <p class="goods-name">{{ item.goodsName }}</p>
-          <p class="goods-price">
-            <span class="price-symbol">¥</span>{{ item.originalPrice.toFixed(2) }}
+          <template v-if="item.activityId != null && item.payPrice != null">
+            <p class="goods-group-price"><span>拼团价</span> <span>￥{{ item.payPrice.toFixed(2) }}</span></p>
+            <p class="goods-original-price">原价 ￥{{ item.originalPrice.toFixed(2) }}</p>
+            <p v-if="item.tagName" class="goods-limit">仅 {{ item.tagName }} 人群可参与</p>
+          </template>
+          <p v-else class="goods-price">
+            <span class="price-symbol">￥</span>{{ item.originalPrice.toFixed(2) }}
           </p>
         </div>
       </div>
@@ -137,6 +142,30 @@ onMounted(async () => {
   color: #ef4444;
   font-size: 18px;
   font-weight: 600;
+}
+
+.goods-group-price {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #ef4444;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.goods-original-price {
+  margin-top: 4px;
+  color: #9ca3af;
+  font-size: 12px;
+  text-decoration: line-through;
+}
+
+.goods-limit {
+  margin-top: 6px;
+  color: #2563eb;
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .price-symbol {

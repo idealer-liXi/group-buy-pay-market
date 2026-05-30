@@ -1,6 +1,7 @@
 package cn.idealer01.test.trigger;
 
 import cn.idealer01.api.dto.AdminActivityListResponseDTO;
+import cn.idealer01.api.dto.AdminStatusUpdateRequestDTO;
 import cn.idealer01.api.dto.AdminActivityUpsertRequestDTO;
 import cn.idealer01.api.response.Response;
 import cn.idealer01.infrastructure.dao.IGroupBuyActivityDao;
@@ -11,6 +12,7 @@ import cn.idealer01.infrastructure.dao.po.GroupBuyActivity;
 import cn.idealer01.infrastructure.dao.po.GroupBuyDiscount;
 import cn.idealer01.infrastructure.dao.po.SCSkuActivity;
 import cn.idealer01.infrastructure.dao.po.Sku;
+import cn.idealer01.infrastructure.redis.IRedisService;
 import cn.idealer01.trigger.http.AdminActivityController;
 import org.junit.Test;
 
@@ -132,6 +134,43 @@ public class AdminActivityControllerTest {
     }
 
     @Test
+    public void createActivity_generatesActivityId_whenRequestSendsZero() {
+        IGroupBuyActivityDao activityDao = mock(IGroupBuyActivityDao.class);
+        ISkuDao skuDao = mock(ISkuDao.class);
+        IGroupBuyDiscountDao discountDao = mock(IGroupBuyDiscountDao.class);
+        ISCSkuActivityDao scSkuActivityDao = mock(ISCSkuActivityDao.class);
+        when(activityDao.queryGroupBuyActivityList()).thenReturn(Collections.emptyList());
+        when(skuDao.querySkuByGoodsId("9890001")).thenReturn(
+                Sku.builder().goodsId("9890001").goodsName("测试商品").originalPrice(new BigDecimal("10.00")).status(0).build()
+        );
+        when(discountDao.queryGroupBuyActivityDiscountByDiscountId("1")).thenReturn(
+                GroupBuyDiscount.builder().discountId(1).discountName("直减10元").status(0).build()
+        );
+        when(scSkuActivityDao.querySCSkuActivityBySCGoodsId(any())).thenReturn(null);
+
+        AdminActivityController controller = new AdminActivityController(activityDao, skuDao, discountDao, scSkuActivityDao);
+        AdminActivityUpsertRequestDTO request = AdminActivityUpsertRequestDTO.builder()
+                .activityId(0L)
+                .activityName("测试活动")
+                .goodsId("9890001")
+                .discountId("1")
+                .groupType(1)
+                .takeLimitCount(1)
+                .target(3)
+                .validTime(15)
+                .startTime(new Date())
+                .endTime(new Date(System.currentTimeMillis() + 3600000))
+                .build();
+
+        Response<Void> response = controller.createActivity(request);
+
+        ArgumentCaptor<GroupBuyActivity> activityCaptor = ArgumentCaptor.forClass(GroupBuyActivity.class);
+        verify(activityDao).insertGroupBuyActivity(activityCaptor.capture());
+        assertEquals(Long.valueOf(100001L), activityCaptor.getValue().getActivityId());
+        assertEquals("0000", response.getCode());
+    }
+
+    @Test
     public void createActivity_rejectsGoodsAlreadyBoundToAnotherActivity() {
         IGroupBuyActivityDao activityDao = mock(IGroupBuyActivityDao.class);
         ISkuDao skuDao = mock(ISkuDao.class);
@@ -222,7 +261,7 @@ public class AdminActivityControllerTest {
         ISCSkuActivityDao scSkuActivityDao = mock(ISCSkuActivityDao.class);
 
         when(activityDao.queryGroupBuyActivityByActivityId(100123L)).thenReturn(
-                GroupBuyActivity.builder().activityId(100123L).status(0).build()
+                GroupBuyActivity.builder().activityId(100123L).status(1).build()
         );
         when(skuDao.querySkuByGoodsId("9890002")).thenReturn(
                 Sku.builder().goodsId("9890002").status(0).build()
@@ -246,8 +285,46 @@ public class AdminActivityControllerTest {
 
         Response<Void> response = controller.updateActivity(100123L, request);
 
-        verify(scSkuActivityDao, times(1)).updateSCSkuActivityByActivityId(eq(100123L), eq("9890002"), eq("s01"), eq("c01"));
+        verify(scSkuActivityDao, times(1)).deleteSCSkuActivityByActivityId(100123L);
+        verify(scSkuActivityDao, times(1)).insertSCSkuActivity(any());
+        verify(scSkuActivityDao, never()).updateSCSkuActivityByActivityId(any(), any(), any(), any());
         assertEquals("0000", response.getCode());
+    }
+
+    @Test
+    public void updateActivity_replacesBindingsWhenChangingToSingleGoodsId() {
+        IGroupBuyActivityDao activityDao = mock(IGroupBuyActivityDao.class);
+        ISkuDao skuDao = mock(ISkuDao.class);
+        IGroupBuyDiscountDao discountDao = mock(IGroupBuyDiscountDao.class);
+        ISCSkuActivityDao scSkuActivityDao = mock(ISCSkuActivityDao.class);
+        when(activityDao.queryGroupBuyActivityByActivityId(100123L)).thenReturn(
+                GroupBuyActivity.builder().activityId(100123L).status(1).build()
+        );
+        when(skuDao.querySkuByGoodsId("9890002")).thenReturn(Sku.builder().goodsId("9890002").status(0).build());
+        when(discountDao.queryGroupBuyActivityDiscountByDiscountId("1")).thenReturn(GroupBuyDiscount.builder().discountId(1).status(0).build());
+        when(scSkuActivityDao.querySCSkuActivityBySCGoodsId(any())).thenReturn(
+                SCSkuActivity.builder().activityId(100123L).build()
+        );
+
+        AdminActivityController controller = new AdminActivityController(activityDao, skuDao, discountDao, scSkuActivityDao);
+        AdminActivityUpsertRequestDTO request = AdminActivityUpsertRequestDTO.builder()
+                .activityName("测试活动")
+                .goodsId("9890002")
+                .discountId("1")
+                .groupType(1)
+                .takeLimitCount(1)
+                .target(3)
+                .validTime(15)
+                .startTime(new Date())
+                .endTime(new Date(System.currentTimeMillis() + 3600000))
+                .build();
+
+        Response<Void> response = controller.updateActivity(100123L, request);
+
+        assertEquals("0000", response.getCode());
+        verify(scSkuActivityDao, times(1)).deleteSCSkuActivityByActivityId(100123L);
+        verify(scSkuActivityDao, times(1)).insertSCSkuActivity(any());
+        verify(scSkuActivityDao, never()).updateSCSkuActivityByActivityId(any(), any(), any(), any());
     }
 
     @Test
@@ -257,7 +334,7 @@ public class AdminActivityControllerTest {
         IGroupBuyDiscountDao discountDao = mock(IGroupBuyDiscountDao.class);
         ISCSkuActivityDao scSkuActivityDao = mock(ISCSkuActivityDao.class);
         when(activityDao.queryGroupBuyActivityByActivityId(100123L)).thenReturn(
-                GroupBuyActivity.builder().activityId(100123L).status(0).build()
+                GroupBuyActivity.builder().activityId(100123L).status(1).build()
         );
         when(skuDao.querySkuByGoodsId("9890001")).thenReturn(Sku.builder().goodsId("9890001").status(0).build());
         when(skuDao.querySkuByGoodsId("9890002")).thenReturn(Sku.builder().goodsId("9890002").status(0).build());
@@ -284,5 +361,18 @@ public class AdminActivityControllerTest {
         assertEquals("0000", response.getCode());
         verify(scSkuActivityDao, times(1)).deleteSCSkuActivityByActivityId(100123L);
         verify(scSkuActivityDao, times(2)).insertSCSkuActivity(any());
+    }
+
+    @Test
+    public void updateStatus_evictsCachedActivityConfig() {
+        IGroupBuyActivityDao activityDao = mock(IGroupBuyActivityDao.class);
+        IRedisService redisService = mock(IRedisService.class);
+        AdminActivityController controller = new AdminActivityController(activityDao, mock(ISkuDao.class), mock(IGroupBuyDiscountDao.class), mock(ISCSkuActivityDao.class), redisService);
+
+        Response<Void> response = controller.updateStatus(100123L, new AdminStatusUpdateRequestDTO(3));
+
+        assertEquals("0000", response.getCode());
+        verify(activityDao).updateGroupBuyActivityStatus(100123L, 3);
+        verify(redisService).remove(GroupBuyActivity.cacheRedisKey(100123L));
     }
 }

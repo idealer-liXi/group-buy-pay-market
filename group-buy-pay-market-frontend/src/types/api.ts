@@ -28,8 +28,20 @@ export type GoodsMarketResponse = {
     allTeamCompleteCount: number
     allTeamUserCount: number
   }
+  activity?: ActivitySummary | null
   isVisible?: boolean
   isEnable?: boolean
+}
+
+export type ActivitySummary = {
+  activityId: number
+  activityName: string
+  groupType: number
+  target: number
+  validTime: number
+  tagId?: string | null
+  tagName?: string | null
+  tagScope?: string | null
 }
 
 export type TeamItem = {
@@ -54,7 +66,21 @@ export type SkuItem = {
   goodsId: string
   goodsName: string
   originalPrice: number
+  deductionPrice?: number | null
+  payPrice?: number | null
+  activityId?: number | null
+  activityName?: string | null
+  tagId?: string | null
+  tagName?: string | null
+  tagScope?: string | null
   coverImageUrl?: string | null
+}
+
+export type UserTagItem = {
+  tagId: string
+  tagName: string
+  tagDesc?: string | null
+  statistics?: number
 }
 
 export type SkuListResponse = {
@@ -80,6 +106,12 @@ export type PurchaseHistoryResponse = {
   recordList: PurchaseRecord[]
 }
 
+export type CreatePayOrderResponse = {
+  orderId?: string
+  payUrl: string
+  reusedPayOrder?: boolean
+}
+
 export type RefundMarketPayOrderRequest = {
   userId: string
   outTradeNo: string
@@ -95,9 +127,20 @@ export type RefundMarketPayOrderResponse = {
   info: string
 }
 
+export type CancelOrderRequest = {
+  userId: string
+  orderId: string
+}
+
+export type RefundPaidOrderRequest = {
+  userId: string
+  orderId: string
+}
+
 export type UserNotificationMessage = {
-  type: 'GROUP_SUCCESS'
-  teamId: string
+  type: 'GROUP_SUCCESS' | 'GROUP_FAIL' | 'PAY_SUCCESS' | 'REFUND_SUCCESS' | string
+  orderId?: string
+  teamId?: string
   message: string
-  outTradeNoList: string[]
+  outTradeNoList?: string[]
 }

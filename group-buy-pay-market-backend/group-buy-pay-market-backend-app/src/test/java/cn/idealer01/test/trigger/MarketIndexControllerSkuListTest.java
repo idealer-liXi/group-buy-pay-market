@@ -8,8 +8,16 @@ import cn.idealer01.domain.activity.model.entity.TrialBalanceEntity;
 import cn.idealer01.domain.activity.model.valobj.GroupBuyActivityDiscountVO;
 import cn.idealer01.domain.activity.model.valobj.TeamStatisticVO;
 import cn.idealer01.domain.activity.service.IIndexGroupBuyMarketService;
+import cn.idealer01.infrastructure.dao.ICrowdTagsDao;
+import cn.idealer01.infrastructure.dao.IGroupBuyActivityDao;
+import cn.idealer01.infrastructure.dao.IGroupBuyDiscountDao;
+import cn.idealer01.infrastructure.dao.ISCSkuActivityDao;
 import cn.idealer01.infrastructure.dao.ISkuDao;
 import cn.idealer01.infrastructure.dao.ISkuImageDao;
+import cn.idealer01.infrastructure.dao.po.CrowdTags;
+import cn.idealer01.infrastructure.dao.po.GroupBuyActivity;
+import cn.idealer01.infrastructure.dao.po.GroupBuyDiscount;
+import cn.idealer01.infrastructure.dao.po.SCSkuActivity;
 import cn.idealer01.infrastructure.dao.po.Sku;
 import cn.idealer01.trigger.http.MarketIndexController;
 import cn.idealer01.types.exception.AppException;
@@ -66,6 +74,48 @@ public class MarketIndexControllerSkuListTest {
     }
 
     @Test
+    public void querySkuList_returnsMarketPriceAndRestrictedTagName() {
+        ISkuDao skuDao = mock(ISkuDao.class);
+        ISkuImageDao skuImageDao = mock(ISkuImageDao.class);
+        ISCSkuActivityDao scSkuActivityDao = mock(ISCSkuActivityDao.class);
+        IGroupBuyActivityDao activityDao = mock(IGroupBuyActivityDao.class);
+        IGroupBuyDiscountDao discountDao = mock(IGroupBuyDiscountDao.class);
+        ICrowdTagsDao tagsDao = mock(ICrowdTagsDao.class);
+        when(skuDao.querySkuList()).thenReturn(Collections.singletonList(
+                Sku.builder().source("s01").channel("c01").goodsId("9890001").goodsName("可售商品").originalPrice(new BigDecimal("99.00")).status(0).build()
+        ));
+        when(skuImageDao.querySkuImagesByGoodsIds(Collections.singletonList("9890001"))).thenReturn(Collections.emptyList());
+        when(scSkuActivityDao.querySCSkuActivityBySCGoodsId(SCSkuActivity.builder().source("s01").channel("c01").goodsId("9890001").build()))
+                .thenReturn(SCSkuActivity.builder().activityId(9890001L).goodsId("9890001").build());
+        when(activityDao.queryGroupBuyActivityByActivityId(9890001L)).thenReturn(GroupBuyActivity.builder()
+                .activityId(9890001L)
+                .activityName("新人拼团")
+                .discountId("1")
+                .status(1)
+                .tagId("T001")
+                .tagScope("2")
+                .build());
+        when(discountDao.queryGroupBuyActivityDiscountByDiscountId("1")).thenReturn(GroupBuyDiscount.builder()
+                .discountId(1)
+                .marketPlan("ZJ")
+                .marketExpr("10")
+                .status(0)
+                .build());
+        when(tagsDao.queryCrowdTagsByTagId("T001")).thenReturn(CrowdTags.builder().tagId("T001").tagName("新人").build());
+
+        MarketIndexController controller = new MarketIndexController(null, skuDao, skuImageDao, scSkuActivityDao, activityDao, discountDao, tagsDao);
+        Response<SkuListResponseDTO> response = controller.querySkuList();
+
+        SkuListResponseDTO.SkuItem item = response.getData().getSkuList().get(0);
+        assertEquals(new BigDecimal("89.00"), item.getPayPrice());
+        assertEquals(new BigDecimal("10.00"), item.getDeductionPrice());
+        assertEquals(Long.valueOf(9890001L), item.getActivityId());
+        assertEquals("新人拼团", item.getActivityName());
+        assertEquals("新人", item.getTagName());
+        assertEquals("2", item.getTagScope());
+    }
+
+    @Test
     public void queryGroupBuyMarketConfig_returnsPlainGoods_whenNoMarketConfig() throws Exception {
         IIndexGroupBuyMarketService indexGroupBuyMarketService = mock(IIndexGroupBuyMarketService.class);
         ISkuDao skuDao = mock(ISkuDao.class);
@@ -114,7 +164,12 @@ public class MarketIndexControllerSkuListTest {
                 .isEnable(false)
                 .groupBuyActivityDiscountVO(GroupBuyActivityDiscountVO.builder()
                         .activityId(9890001L)
+                        .activityName("新人拼团")
+                        .groupType(1)
                         .target(3)
+                        .validTime(15)
+                        .tagId("T001")
+                        .tagScope("2")
                         .build())
                 .build());
         when(indexGroupBuyMarketService.queryTeamStatisticByActivity(9890001L)).thenReturn(TeamStatisticVO.builder()
@@ -135,5 +190,11 @@ public class MarketIndexControllerSkuListTest {
 
         assertEquals(Boolean.TRUE, response.getData().getIsVisible());
         assertEquals(Boolean.FALSE, response.getData().getIsEnable());
+        assertEquals("新人拼团", response.getData().getActivity().getActivityName());
+        assertEquals(Integer.valueOf(1), response.getData().getActivity().getGroupType());
+        assertEquals(Integer.valueOf(3), response.getData().getActivity().getTarget());
+        assertEquals(Integer.valueOf(15), response.getData().getActivity().getValidTime());
+        assertEquals("T001", response.getData().getActivity().getTagId());
+        assertEquals("2", response.getData().getActivity().getTagScope());
     }
 }

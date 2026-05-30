@@ -20,6 +20,16 @@ public class WebSocketNotificationConfig implements WebSocketConfigurer {
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(userNotificationWebSocketHandler, "/ws/notifications")
                 .addInterceptors(userNotificationHandshakeInterceptor)
-                .setAllowedOrigins("http://127.0.0.1:5173", "http://localhost:5173", "http://127.0.0.1:8080", "http://localhost:8080");
+                .setAllowedOrigins(allowedOrigins());
+    }
+
+    public String[] allowedOrigins() {
+        return new String[]{
+                "http://127.0.0.1:5173",
+                "http://localhost:5173",
+                "http://127.0.0.1:8080",
+                "http://localhost:8080",
+                "http://110.42.207.45:15173"
+        };
     }
 }

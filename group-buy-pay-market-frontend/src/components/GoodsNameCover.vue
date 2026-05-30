@@ -31,24 +31,24 @@ watch(() => props.imageUrl, () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
   background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
   overflow: hidden;
 }
 
 .goods-name-cover--card {
-  min-height: 200px;
-  padding: 20px;
+  height: 200px;
 }
 
 .goods-name-cover--hero {
-  flex: 1;
-  min-height: 320px;
+  flex: none;
+  height: 320px;
 }
 
 .goods-name-cover__title {
+  box-sizing: border-box;
   width: 100%;
   max-width: 100%;
+  padding: 24px;
   color: #3730a3;
   font-weight: 700;
   text-align: center;
@@ -69,19 +69,24 @@ watch(() => props.imageUrl, () => {
 }
 
 .goods-name-cover--card .goods-name-cover__title {
+  padding: 20px;
   font-size: 18px;
   line-height: 1.5;
   -webkit-line-clamp: 3;
 }
 
 .goods-name-cover--hero .goods-name-cover__title {
-  max-width: 12em;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 28px;
+  padding: 42px;
 }
 
 @media (max-width: 768px) {
   .goods-name-cover--hero {
-    min-height: 280px;
+    height: 280px;
   }
 
   .goods-name-cover--card .goods-name-cover__title {

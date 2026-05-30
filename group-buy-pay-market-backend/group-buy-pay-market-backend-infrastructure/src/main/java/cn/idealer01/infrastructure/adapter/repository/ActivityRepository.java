@@ -40,9 +40,7 @@ public class ActivityRepository extends AbstractRepository implements IActivityR
     @Override
     public GroupBuyActivityDiscountVO queryGroupBuyActivityDiscountVO(Long activityId) {
         //查询合法的团购活动
-        GroupBuyActivity groupBuyActivityRes = getFromCacheOrDB(GroupBuyActivity.cacheRedisKey(activityId), () ->
-                groupBuyActivityDao.queryValidGroupBuyActivityId(activityId)
-        );
+        GroupBuyActivity groupBuyActivityRes = groupBuyActivityDao.queryValidGroupBuyActivityId(activityId);
         if(null == groupBuyActivityRes) return null;
 
         //根据活动中的折扣id查找到折扣信息
@@ -59,7 +57,6 @@ public class ActivityRepository extends AbstractRepository implements IActivityR
                 .discountDesc(groupBuyDiscountRes.getDiscountDesc())
                 .discountType(DiscountTypeEnum.get(groupBuyDiscountRes.getDiscountType()))
                 .marketPlan(groupBuyDiscountRes.getMarketPlan())
-                .tagId(groupBuyDiscountRes.getTagId())
                 .marketExpr(groupBuyDiscountRes.getMarketExpr())
                 .build();
 

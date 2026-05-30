@@ -16,5 +16,4 @@ public class AdminDiscountUpsertRequestDTO {
     private Integer discountType;
     private String marketPlan;
     private String marketExpr;
-    private String tagId;
 }

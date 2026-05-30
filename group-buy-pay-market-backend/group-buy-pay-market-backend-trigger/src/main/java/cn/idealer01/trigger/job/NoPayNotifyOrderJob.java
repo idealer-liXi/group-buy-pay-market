@@ -29,9 +29,10 @@ public class NoPayNotifyOrderJob {
     @Scheduled(cron = "0/3 * * * * ?")
     public void exec() {
         try {
-            log.info("任务；检测未接收到或未正确处理的支付回调通知");
             List<String> orderIds = orderService.queryNoPayNotifyOrder();
             if (null == orderIds || orderIds.isEmpty()) return;
+
+            log.info("检测未正确处理的支付回调通知订单数量：{}", orderIds.size());
 
             for (String orderId : orderIds) {
                 AlipayTradeQueryRequest request = new AlipayTradeQueryRequest();

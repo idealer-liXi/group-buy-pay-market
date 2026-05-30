@@ -33,15 +33,6 @@
               <label>优惠表达式</label>
               <input v-model="form.marketExpr" placeholder="请输入优惠表达式" />
             </div>
-            <div class="field">
-              <label>标签</label>
-              <select v-model="form.tagId">
-                <option value="">不限制</option>
-                <option v-for="item in tagOptions" :key="item.tagId" :value="item.tagId">
-                  {{ item.tagName }} - {{ item.tagId }}
-                </option>
-              </select>
-            </div>
           </div>
           <div class="form-actions">
             <button type="submit" class="btn btn-primary">{{ editing ? '保存折扣' : '新增折扣' }}</button>
@@ -90,14 +81,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import AdminLayout from '../../components/admin/AdminLayout.vue'
-import { createAdminDiscount, queryAdminDiscounts, queryAdminTags, updateAdminDiscount, updateAdminDiscountStatus } from '../../lib/admin'
-import type { AdminDiscountItem, AdminTagItem } from '../../types/admin'
+import { createAdminDiscount, queryAdminDiscounts, updateAdminDiscount, updateAdminDiscountStatus } from '../../lib/admin'
+import type { AdminDiscountItem } from '../../types/admin'
 
 const discountList = ref<AdminDiscountItem[]>([])
-const tagOptions = ref<AdminTagItem[]>([])
 const loading = ref(true)
 const editing = ref(false)
-const form = ref({ discountId: '', discountName: '', discountDesc: '', discountType: 1, marketPlan: 'ZJ', marketExpr: '', tagId: '' })
+const form = ref({ discountId: '', discountName: '', discountDesc: '', discountType: 1, marketPlan: 'ZJ', marketExpr: '' })
 
 async function loadDiscounts() {
   const result = await queryAdminDiscounts()
@@ -107,13 +97,6 @@ async function loadDiscounts() {
   loading.value = false
 }
 
-async function loadTags() {
-  const result = await queryAdminTags()
-  if (result.code === '0000') {
-    tagOptions.value = result.data.tagList
-  }
-}
-
 function editDiscount(item: AdminDiscountItem) {
   editing.value = true
   form.value = { ...item }
@@ -121,7 +104,7 @@ function editDiscount(item: AdminDiscountItem) {
 
 function cancelEdit() {
   editing.value = false
-  form.value = { discountId: '', discountName: '', discountDesc: '', discountType: 1, marketPlan: 'ZJ', marketExpr: '', tagId: '' }
+  form.value = { discountId: '', discountName: '', discountDesc: '', discountType: 1, marketPlan: 'ZJ', marketExpr: '' }
 }
 
 async function submitDiscount() {
@@ -131,15 +114,14 @@ async function submitDiscount() {
       discountDesc: form.value.discountDesc,
       discountType: form.value.discountType,
       marketPlan: form.value.marketPlan,
-      marketExpr: form.value.marketExpr,
-      tagId: form.value.tagId
+      marketExpr: form.value.marketExpr
     })
   } else {
     await createAdminDiscount(form.value)
   }
 
   editing.value = false
-  form.value = { discountId: '', discountName: '', discountDesc: '', discountType: 1, marketPlan: 'ZJ', marketExpr: '', tagId: '' }
+  form.value = { discountId: '', discountName: '', discountDesc: '', discountType: 1, marketPlan: 'ZJ', marketExpr: '' }
   await loadDiscounts()
 }
 
@@ -150,7 +132,6 @@ async function toggleDiscountStatus(item: AdminDiscountItem) {
 
 onMounted(() => {
   loadDiscounts()
-  loadTags()
 })
 </script>
 

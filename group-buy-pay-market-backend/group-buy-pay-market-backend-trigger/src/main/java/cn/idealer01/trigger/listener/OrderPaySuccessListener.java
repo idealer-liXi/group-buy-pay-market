@@ -2,6 +2,9 @@ package cn.idealer01.trigger.listener;
 
 import cn.idealer01.domain.goods.service.IGoodsService;
 import cn.idealer01.domain.order.adapt.event.PaySuccessMessageEvent;
+import cn.idealer01.infrastructure.dao.IOrderDao;
+import cn.idealer01.infrastructure.dao.po.PayOrder;
+import cn.idealer01.trigger.websocket.UserNotificationWebSocketHandler;
 import com.alibaba.fastjson.JSON;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.ExchangeTypes;
@@ -12,6 +15,9 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * @author Fuzhengwei bugstack.cn @小傅哥
@@ -23,6 +29,19 @@ import javax.annotation.Resource;
 public class OrderPaySuccessListener {
     @Resource
     private IGoodsService goodsService;
+    @Resource
+    private IOrderDao orderDao;
+    @Resource
+    private UserNotificationWebSocketHandler userNotificationWebSocketHandler;
+
+    public OrderPaySuccessListener() {
+    }
+
+    public OrderPaySuccessListener(IGoodsService goodsService, IOrderDao orderDao, UserNotificationWebSocketHandler userNotificationWebSocketHandler) {
+        this.goodsService = goodsService;
+        this.orderDao = orderDao;
+        this.userNotificationWebSocketHandler = userNotificationWebSocketHandler;
+    }
 
     @RabbitListener(
             bindings = @QueueBinding(
@@ -41,6 +60,7 @@ public class OrderPaySuccessListener {
 
             // 变更订单状态 - 发货完成&结算
             goodsService.changeOrderDealDone(paySuccessMessage.getTradeNo());
+            pushPaySuccess(paySuccessMessage.getTradeNo());
 
             // 可以打开测试，MQ 消费失败，会抛异常，之后重试消费。这个也是最终执行的重要手段。
             // throw new RuntimeException("重试消费");
@@ -50,6 +70,18 @@ public class OrderPaySuccessListener {
         }
 
 
+    }
+
+    private void pushPaySuccess(String orderId) {
+        PayOrder payOrder = orderDao.queryPayOrderByOrderId(orderId);
+        if (payOrder == null || payOrder.getUserId() == null) {
+            return;
+        }
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("type", "PAY_SUCCESS");
+        payload.put("orderId", orderId);
+        payload.put("message", "支付成功");
+        userNotificationWebSocketHandler.sendToUsers(Collections.singleton(payOrder.getUserId()), JSON.toJSONString(payload));
     }
 
 }

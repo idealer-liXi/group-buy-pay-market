@@ -20,24 +20,26 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class OrderServiceMarketTypeReuseTest {
 
     @Test
-    public void createOrder_doesNotReuseGroupBuyPayOrder_whenPlainGoodsPaymentRequested() throws Exception {
+    public void createOrder_doesNotReuseExistingPayWaitOrderWhenMarketTypeDiffers() throws Exception {
         IOrderRepository repository = mock(IOrderRepository.class);
         IProductPort productPort = mock(IProductPort.class);
         when(repository.queryUnPayOrder(any())).thenReturn(OrderEntity.builder()
                 .productId("9890005")
                 .productName("新商品")
-                .orderId("old-group-order")
+                .orderId("old-plain-order")
                 .orderStatusVO(OrderStatusVO.PAY_WAIT)
-                .payUrl("old-group-pay-url")
-                .marketType(MarketTypeVO.GROUP_BUY_MARKET.getCode())
+                .payUrl("old-plain-pay-url")
+                .marketType(MarketTypeVO.NO_MARKET.getCode())
                 .build());
         when(productPort.queryProductByProductId("9890005")).thenReturn(ProductEntity.builder()
                 .productId("9890005")
@@ -49,30 +51,69 @@ public class OrderServiceMarketTypeReuseTest {
         PayOrderEntity payOrderEntity = orderService.createOrder(ShopCartEntity.builder()
                 .userId("u1")
                 .productId("9890005")
-                .marketTypeVO(MarketTypeVO.NO_MARKET)
+                .activityId(100123L)
+                .marketTypeVO(MarketTypeVO.GROUP_BUY_MARKET)
                 .build());
 
-        assertEquals("new-plain-pay-url", payOrderEntity.getPayUrl());
-        verify(repository).doSaveOrder(any());
+        assertEquals("new-group-pay-url", payOrderEntity.getPayUrl());
+        assertEquals(Boolean.FALSE, payOrderEntity.getReusedPayOrder());
+    }
+
+    @Test
+    public void createOrder_rejectsGroupBuyWhenMarketLockReturnsNoDiscount() throws Exception {
+        IOrderRepository repository = mock(IOrderRepository.class);
+        IProductPort productPort = mock(IProductPort.class);
+        when(repository.queryUnPayOrder(any())).thenReturn(null);
+        when(productPort.queryProductByProductId("9890005")).thenReturn(ProductEntity.builder()
+                .productId("9890005")
+                .productName("新商品")
+                .price(new BigDecimal("109.00"))
+                .build());
+
+        TestOrderService orderService = new TestOrderService(repository, productPort, null);
+
+        try {
+            orderService.createOrder(ShopCartEntity.builder()
+                    .userId("u1")
+                    .productId("9890005")
+                    .activityId(100123L)
+                    .marketTypeVO(MarketTypeVO.GROUP_BUY_MARKET)
+                    .build());
+            fail("拼团锁单无折扣时不应降级为普通原价订单");
+        } catch (IllegalStateException e) {
+            assertEquals("拼团营销锁单失败", e.getMessage());
+        }
+        verify(repository, never()).doSaveOrder(any(CreateOrderAggregate.class));
     }
 
     private static class TestOrderService extends AbstactOrderService {
 
+        private final MarketPayDiscountEntity marketPayDiscountEntity;
+
         TestOrderService(IOrderRepository repository, IProductPort port) {
+            this(repository, port, MarketPayDiscountEntity.builder()
+                    .originalPrice(new BigDecimal("19.90"))
+                    .deductionPrice(new BigDecimal("10.00"))
+                    .payPrice(new BigDecimal("9.90"))
+                    .build());
+        }
+
+        TestOrderService(IOrderRepository repository, IProductPort port, MarketPayDiscountEntity marketPayDiscountEntity) {
             super(repository, port);
+            this.marketPayDiscountEntity = marketPayDiscountEntity;
         }
 
         @Override
         protected PayOrderEntity doPrepayOrder(String userId, String productId, String productName, String orderId, BigDecimal totalAmount, MarketPayDiscountEntity marketPayDiscountEntity) throws AlipayApiException {
             return PayOrderEntity.builder()
                     .orderId(orderId)
-                    .payUrl("new-plain-pay-url")
+                    .payUrl(null == marketPayDiscountEntity ? "new-plain-pay-url" : "new-group-pay-url")
                     .build();
         }
 
         @Override
         protected MarketPayDiscountEntity lockMarketPayOrder(String userId, String teamId, Long activityId, String productId, String orderId) {
-            return null;
+            return marketPayDiscountEntity;
         }
 
         @Override

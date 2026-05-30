@@ -36,7 +36,6 @@ export type AdminDiscountItem = {
   discountType: number
   marketPlan: string
   marketExpr: string
-  tagId?: string | null
   status: number
 }
 

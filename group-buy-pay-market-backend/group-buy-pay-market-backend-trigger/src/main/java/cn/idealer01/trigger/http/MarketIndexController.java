@@ -12,8 +12,16 @@ import cn.idealer01.domain.activity.model.entity.UserGroupBuyOrderDetailEntity;
 import cn.idealer01.domain.activity.model.valobj.GroupBuyActivityDiscountVO;
 import cn.idealer01.domain.activity.model.valobj.TeamStatisticVO;
 import cn.idealer01.domain.activity.service.IIndexGroupBuyMarketService;
+import cn.idealer01.infrastructure.dao.ICrowdTagsDao;
+import cn.idealer01.infrastructure.dao.IGroupBuyActivityDao;
+import cn.idealer01.infrastructure.dao.IGroupBuyDiscountDao;
+import cn.idealer01.infrastructure.dao.ISCSkuActivityDao;
 import cn.idealer01.infrastructure.dao.ISkuDao;
 import cn.idealer01.infrastructure.dao.ISkuImageDao;
+import cn.idealer01.infrastructure.dao.po.CrowdTags;
+import cn.idealer01.infrastructure.dao.po.GroupBuyActivity;
+import cn.idealer01.infrastructure.dao.po.GroupBuyDiscount;
+import cn.idealer01.infrastructure.dao.po.SCSkuActivity;
 import cn.idealer01.infrastructure.dao.po.Sku;
 import cn.idealer01.infrastructure.dao.po.SkuImage;
 import cn.idealer01.types.enums.ResponseCode;
@@ -26,6 +34,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -44,6 +53,14 @@ public class MarketIndexController implements IMarketIndexService {
     private ISkuDao skuDao;
     @Resource
     private ISkuImageDao skuImageDao;
+    @Resource
+    private ISCSkuActivityDao scSkuActivityDao;
+    @Resource
+    private IGroupBuyActivityDao activityDao;
+    @Resource
+    private IGroupBuyDiscountDao discountDao;
+    @Resource
+    private ICrowdTagsDao tagsDao;
 
     public MarketIndexController() {
     }
@@ -53,9 +70,19 @@ public class MarketIndexController implements IMarketIndexService {
     }
 
     public MarketIndexController(IIndexGroupBuyMarketService indexGroupBuyMarketService, ISkuDao skuDao, ISkuImageDao skuImageDao) {
+        this(indexGroupBuyMarketService, skuDao, skuImageDao, null, null, null, null);
+    }
+
+    public MarketIndexController(IIndexGroupBuyMarketService indexGroupBuyMarketService, ISkuDao skuDao, ISkuImageDao skuImageDao,
+                                 ISCSkuActivityDao scSkuActivityDao, IGroupBuyActivityDao activityDao,
+                                 IGroupBuyDiscountDao discountDao, ICrowdTagsDao tagsDao) {
         this.indexGroupBuyMarketService = indexGroupBuyMarketService;
         this.skuDao = skuDao;
         this.skuImageDao = skuImageDao;
+        this.scSkuActivityDao = scSkuActivityDao;
+        this.activityDao = activityDao;
+        this.discountDao = discountDao;
+        this.tagsDao = tagsDao;
     }
     @Override
     @PostMapping("query_group_buy_market_config")
@@ -131,6 +158,17 @@ public class MarketIndexController implements IMarketIndexService {
                     .allTeamUserCount(teamStatisticVO.getAllTeamUserCount())
                     .build();
 
+            GoodsMarketResponseDTO.Activity activity = GoodsMarketResponseDTO.Activity.builder()
+                    .activityId(groupBuyActivityDiscountVO.getActivityId())
+                    .activityName(groupBuyActivityDiscountVO.getActivityName())
+                    .groupType(groupBuyActivityDiscountVO.getGroupType())
+                    .target(groupBuyActivityDiscountVO.getTarget())
+                    .validTime(groupBuyActivityDiscountVO.getValidTime())
+                    .tagId(groupBuyActivityDiscountVO.getTagId())
+                    .tagName(resolveTagName(groupBuyActivityDiscountVO.getTagId()))
+                    .tagScope(groupBuyActivityDiscountVO.getTagScope())
+                    .build();
+
             Response<GoodsMarketResponseDTO> response = Response.<GoodsMarketResponseDTO>builder()
                     .code(ResponseCode.SUCCESS.getCode())
                     .info(ResponseCode.SUCCESS.getInfo())
@@ -139,6 +177,7 @@ public class MarketIndexController implements IMarketIndexService {
                             .goods(goods)
                             .teamList(teamList)
                             .teamStatistic(teamStatistic)
+                            .activity(activity)
                             .isVisible(trialBalanceEntity.getIsVisible())
                             .isEnable(trialBalanceEntity.getIsEnable())
                             .build())
@@ -228,13 +267,14 @@ public class MarketIndexController implements IMarketIndexService {
                     continue;
                 }
                 List<SkuImage> images = imagesByGoodsId.getOrDefault(sku.getGoodsId(), Collections.emptyList());
-
-                skuItems.add(SkuListResponseDTO.SkuItem.builder()
+                SkuListResponseDTO.SkuItem.SkuItemBuilder itemBuilder = SkuListResponseDTO.SkuItem.builder()
                         .goodsId(sku.getGoodsId())
                         .goodsName(sku.getGoodsName())
                         .originalPrice(sku.getOriginalPrice())
-                        .coverImageUrl(images.isEmpty() ? null : images.get(0).getImageUrl())
-                        .build());
+                        .coverImageUrl(images.isEmpty() ? null : images.get(0).getImageUrl());
+                fillMarketSummary(itemBuilder, sku);
+
+                skuItems.add(itemBuilder.build());
             }
             return Response.<SkuListResponseDTO>builder()
                     .code(ResponseCode.SUCCESS.getCode())
@@ -281,6 +321,72 @@ public class MarketIndexController implements IMarketIndexService {
             log.warn("商品图片表不可用，商品列表按无图片处理 goodsIds:{} error:{}", goodsIds, e.getMessage());
             return Collections.emptyList();
         }
+    }
+
+    private void fillMarketSummary(SkuListResponseDTO.SkuItem.SkuItemBuilder itemBuilder, Sku sku) {
+        if (scSkuActivityDao == null || activityDao == null || discountDao == null) {
+            return;
+        }
+
+        SCSkuActivity binding = scSkuActivityDao.querySCSkuActivityBySCGoodsId(SCSkuActivity.builder()
+                .source(sku.getSource())
+                .channel(sku.getChannel())
+                .goodsId(sku.getGoodsId())
+                .build());
+        if (binding == null || binding.getActivityId() == null) {
+            return;
+        }
+
+        GroupBuyActivity activity = activityDao.queryGroupBuyActivityByActivityId(binding.getActivityId());
+        if (activity == null || activity.getStatus() == null || activity.getStatus() != 1) {
+            return;
+        }
+
+        GroupBuyDiscount discount = discountDao.queryGroupBuyActivityDiscountByDiscountId(activity.getDiscountId());
+        if (discount == null || (discount.getStatus() != null && discount.getStatus() == 1)) {
+            return;
+        }
+
+        BigDecimal payPrice = calculatePayPrice(sku.getOriginalPrice(), discount);
+        itemBuilder.activityId(activity.getActivityId())
+                .activityName(activity.getActivityName())
+                .deductionPrice(sku.getOriginalPrice().subtract(payPrice).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP))
+                .payPrice(payPrice)
+                .tagId(activity.getTagId())
+                .tagName(resolveTagName(activity.getTagId()))
+                .tagScope(activity.getTagScope());
+    }
+
+    private BigDecimal calculatePayPrice(BigDecimal originalPrice, GroupBuyDiscount discount) {
+        if (originalPrice == null || discount == null || StringUtils.isBlank(discount.getMarketPlan()) || StringUtils.isBlank(discount.getMarketExpr())) {
+            return originalPrice;
+        }
+        String marketPlan = discount.getMarketPlan();
+        String marketExpr = discount.getMarketExpr();
+        if ("ZJ".equals(marketPlan)) {
+            return originalPrice.subtract(new BigDecimal(marketExpr)).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+        }
+        if ("N".equals(marketPlan)) {
+            return new BigDecimal(marketExpr).setScale(2, RoundingMode.HALF_UP);
+        }
+        if ("ZK".equals(marketPlan)) {
+            return originalPrice.multiply(new BigDecimal(marketExpr)).setScale(2, RoundingMode.HALF_UP);
+        }
+        if ("MJ".equals(marketPlan)) {
+            String[] expr = marketExpr.split(",");
+            if (expr.length == 2 && originalPrice.compareTo(new BigDecimal(expr[0])) >= 0) {
+                return originalPrice.subtract(new BigDecimal(expr[1])).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+            }
+        }
+        return originalPrice.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private String resolveTagName(String tagId) {
+        if (StringUtils.isBlank(tagId) || tagsDao == null) {
+            return null;
+        }
+        CrowdTags tag = tagsDao.queryCrowdTagsByTagId(tagId);
+        return tag == null ? null : tag.getTagName();
     }
 
     private String firstImageUrl(List<String> imageUrls) {

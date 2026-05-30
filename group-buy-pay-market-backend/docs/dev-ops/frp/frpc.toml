@@ -10,3 +10,10 @@ type = "tcp"
 localIP = "host.docker.internal"
 localPort = 8080
 remotePort = 18080
+
+[[proxies]]
+name = "gbpm-frontend-http"
+type = "tcp"
+localIP = "host.docker.internal"
+localPort = 5173
+remotePort = 15173

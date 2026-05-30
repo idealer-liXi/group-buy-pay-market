@@ -43,9 +43,6 @@ public class OrderReposity implements IOrderRepository {
         PayOrder orderReq = new PayOrder();
         orderReq.setUserId(shopCartEntity.getUserId());
         orderReq.setProductId(shopCartEntity.getProductId());
-        if (null != shopCartEntity.getMarketTypeVO()) {
-            orderReq.setMarketType(shopCartEntity.getMarketTypeVO().getCode());
-        }
 
         // 2. 查询到订单
         PayOrder order = orderDao.queryUnPayOrder(orderReq);
@@ -136,7 +133,7 @@ public class OrderReposity implements IOrderRepository {
 
     @Override
     public boolean changeOrderClose(String orderId) {
-        return orderDao.changeOrderClose();
+        return orderDao.changeOrderClose(orderId);
     }
 
     @Override
@@ -149,6 +146,7 @@ public class OrderReposity implements IOrderRepository {
                 .productId(payOrder.getProductId())
                 .productName(payOrder.getProductName())
                 .orderId(payOrder.getOrderId())
+                .orderStatusVO(OrderStatusVO.valueOf(payOrder.getStatus()))
                 .orderTime(payOrder.getOrderTime())
                 .totalAmount(payOrder.getTotalAmount())
                 .payAmount(payOrder.getPayAmount())

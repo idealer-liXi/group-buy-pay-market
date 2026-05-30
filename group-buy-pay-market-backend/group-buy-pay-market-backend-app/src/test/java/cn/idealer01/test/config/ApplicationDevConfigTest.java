@@ -1,6 +1,7 @@
 package cn.idealer01.test.config;
 
 import org.junit.Test;
+import cn.idealer01.config.AliPayConfig;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -52,11 +53,36 @@ public class ApplicationDevConfigTest {
     }
 
     @Test
+    public void alipayDevReturnUrlShouldPointToFrontendThroughFrp() throws Exception {
+        String devConfig = readConfig("application-dev.yml");
+        String frpcConfig = new String(Files.readAllBytes(Paths.get("..", "docs", "dev-ops", "frp", "frpc.toml")), StandardCharsets.UTF_8);
+
+        assertTrue(devConfig.contains("return-url: http://110.42.207.45:15173/orders"));
+        assertTrue(frpcConfig.contains("localPort = 5173"));
+        assertTrue(frpcConfig.contains("remotePort = 15173"));
+    }
+
+    @Test
+    public void alipayGatewayUrlShouldDropAccidentalDuplicateUrlSuffix() {
+        String gatewayUrl = AliPayConfig.normalizeGatewayUrl("https://openapi-sandbox.dl.alipaydev.com/gateway.do https://openapi-sandbox.dl.alipaydev.com/gateway.d");
+
+        assertTrue(gatewayUrl.equals("https://openapi-sandbox.dl.alipaydev.com/gateway.do"));
+    }
+
+    @Test
     public void ossDevConfigShouldUseBindablePublicBaseUrlKey() throws Exception {
         String config = readConfig("application-dev.yml");
 
         assertTrue(config.contains("public-base-url:"));
         assertFalse(config.contains("public-domain:"));
+    }
+
+    @Test
+    public void guavaConfigShouldNotIntrospectTriggerListenersDuringConditionEvaluation() throws Exception {
+        String config = new String(Files.readAllBytes(Paths.get("src/main/java/cn/idealer01/config/GuavaConfig.java")), StandardCharsets.UTF_8);
+
+        assertFalse(config.contains("OrderPaySuccessListener"));
+        assertFalse(config.contains("ConditionalOnBean"));
     }
 
     private String readConfig(String fileName) throws Exception {

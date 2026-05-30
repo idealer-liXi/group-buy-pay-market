@@ -2,6 +2,7 @@ package cn.idealer01.trigger.http;
 
 import cn.idealer01.api.IPayService;
 import cn.idealer01.api.dto.CreatePayRequestDTO;
+import cn.idealer01.api.dto.CreatePayResponseDTO;
 import cn.idealer01.api.dto.NotifyRequestDTO;
 import cn.idealer01.api.response.Response;
 import cn.idealer01.domain.order.model.entity.PayOrderEntity;
@@ -39,7 +40,7 @@ public class AlipayController implements IPayService {
 
     @RequestMapping(value = "create_pay_order", method =  RequestMethod.POST)
     @Override
-    public Response<String> createPayOrder(@RequestBody CreatePayRequestDTO createPayRequestDTO) {
+    public Response<CreatePayResponseDTO> createPayOrder(@RequestBody CreatePayRequestDTO createPayRequestDTO) {
         try {
             log.info("商品下单，根据商品ID创建支付单开始 userId:{} productId:{}", createPayRequestDTO.getUserId(), createPayRequestDTO.getUserId());
             String userId = createPayRequestDTO.getUserId();
@@ -56,14 +57,18 @@ public class AlipayController implements IPayService {
                     .build());
 
             log.info("商品下单，根据商品ID创建支付单完成 userId:{} productId:{} orderId:{}", userId, productId, payOrderEntity.getOrderId());
-            return Response.<String>builder()
+            return Response.<CreatePayResponseDTO>builder()
                     .code(Constants.ResponseCode.SUCCESS.getCode())
                     .info(Constants.ResponseCode.SUCCESS.getInfo())
-                    .data(payOrderEntity.getPayUrl())
+                    .data(CreatePayResponseDTO.builder()
+                            .orderId(payOrderEntity.getOrderId())
+                            .payUrl(payOrderEntity.getPayUrl())
+                            .reusedPayOrder(Boolean.TRUE.equals(payOrderEntity.getReusedPayOrder()))
+                            .build())
                     .build();
         } catch (Exception e) {
             log.error("商品下单，根据商品ID创建支付单失败 userId:{} productId:{}", createPayRequestDTO.getUserId(), createPayRequestDTO.getUserId(), e);
-            return Response.<String>builder()
+            return Response.<CreatePayResponseDTO>builder()
                     .code(Constants.ResponseCode.UN_ERROR.getCode())
                     .info(Constants.ResponseCode.UN_ERROR.getInfo())
                     .build();

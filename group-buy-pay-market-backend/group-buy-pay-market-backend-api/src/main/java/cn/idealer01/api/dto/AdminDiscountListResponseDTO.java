@@ -25,7 +25,6 @@ public class AdminDiscountListResponseDTO {
         private Integer discountType;
         private String marketPlan;
         private String marketExpr;
-        private String tagId;
         private Integer status;
     }
 }

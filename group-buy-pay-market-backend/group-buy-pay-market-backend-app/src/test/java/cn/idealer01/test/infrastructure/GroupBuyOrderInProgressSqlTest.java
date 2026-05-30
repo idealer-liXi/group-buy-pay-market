@@ -36,6 +36,16 @@ public class GroupBuyOrderInProgressSqlTest {
     }
 
     @Test
+    public void unpaidOrderQuery_returnsLatestPayWaitOrderForSameGoods() throws Exception {
+        String payOrderMapper = readResource("mybatis/mapper/pay_order_mapper.xml");
+
+        assertTrue(payOrderMapper.contains("where user_id = #{userId} and product_id = #{productId}"));
+        assertTrue(payOrderMapper.contains("and status = 'PAY_WAIT'"));
+        assertTrue(payOrderMapper.contains("order by id desc"));
+        assertTrue(payOrderMapper.contains("limit 1"));
+    }
+
+    @Test
     public void timeoutRefundQuery_loadsPaidExpiredUnformedGroupOrders() throws Exception {
         String orderListMapper = readResource("mybatis/mapper/IGroupBuyOrderListDao.xml");
 

@@ -24,6 +24,13 @@ public class SkuListResponseDTO {
         private String goodsId;
         private String goodsName;
         private BigDecimal originalPrice;
+        private BigDecimal deductionPrice;
+        private BigDecimal payPrice;
+        private Long activityId;
+        private String activityName;
+        private String tagId;
+        private String tagName;
+        private String tagScope;
         private String coverImageUrl;
     }
 }

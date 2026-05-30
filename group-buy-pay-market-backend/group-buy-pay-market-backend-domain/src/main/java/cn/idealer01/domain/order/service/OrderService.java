@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -45,7 +46,7 @@ public class OrderService extends AbstactOrderService{
 
         JSONObject bizContent = new JSONObject();
         bizContent.put("out_trade_no", orderId);
-        bizContent.put("total_amount", payAmount);
+        bizContent.put("total_amount", formatAlipayTotalAmount(payAmount));
         bizContent.put("subject", productName);
         bizContent.put("product_code", "FAST_INSTANT_TRADE_PAY");
         request.setBizContent(bizContent.toString());
@@ -78,6 +79,10 @@ public class OrderService extends AbstactOrderService{
         return doPrepayOrder(userId, productId, productName, orderId, totalAmount, null);
     }
 
+    public static String formatAlipayTotalAmount(BigDecimal amount) {
+        return amount.setScale(2, RoundingMode.HALF_UP).toPlainString();
+    }
+
     @Override
     public void doSaveOrder(CreateOrderAggregate orderAggregate) {
         repository.doSaveOrder(orderAggregate);
@@ -87,6 +92,7 @@ public class OrderService extends AbstactOrderService{
     public void changeOrderPaySuccess(String orderId, Date payTime) {
         OrderEntity orderEntity = repository.queryOrderByOrderId(orderId);
         if(null == orderEntity) return ;
+        if (!OrderStatusVO.PAY_WAIT.equals(orderEntity.getOrderStatusVO())) return;
 
         if(orderEntity.getMarketType().equals(MarketTypeVO.GROUP_BUY_MARKET.getCode())){
             //拼团支付成功

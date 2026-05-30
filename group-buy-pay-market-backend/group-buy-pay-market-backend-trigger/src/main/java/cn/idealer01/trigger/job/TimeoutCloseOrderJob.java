@@ -23,15 +23,16 @@ public class TimeoutCloseOrderJob {
 //    @Scheduled(cron = "0 0/10 * * * ?")
     public void exec() {
         try {
-            log.info("任务；超时30分钟订单关闭");
+            log.debug("任务；超时30分钟订单关闭");
             List<String> orderIds = orderService.queryTimeoutCloseOrderList();
             if (null == orderIds || orderIds.isEmpty()) {
-                log.info("定时任务，超时30分钟订单关闭，暂无超时未支付订单 orderIds is null");
+                log.debug("定时任务，超时30分钟订单关闭，暂无超时未支付订单");
                 return;
             }
+            log.info("定时任务，超时30分钟订单关闭数量：{}", orderIds.size());
             for (String orderId : orderIds) {
                 boolean status = orderService.changeOrderClose(orderId);
-                log.info("定时任务，超时30分钟订单关闭 orderId: {} status：{}", orderId, status);
+                log.debug("定时任务，超时30分钟订单关闭 orderId: {} status：{}", orderId, status);
             }
         } catch (Exception e) {
             log.error("定时任务，超时15分钟订单关闭失败", e);

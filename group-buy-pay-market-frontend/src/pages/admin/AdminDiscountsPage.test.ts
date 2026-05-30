@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import AdminDiscountsPage from './AdminDiscountsPage.vue'
+import { queryAdminTags } from '../../lib/admin'
 
 vi.mock('../../lib/admin', () => ({
   queryAdminDiscounts: vi.fn().mockResolvedValue({
@@ -8,6 +9,9 @@ vi.mock('../../lib/admin', () => ({
     info: 'success',
     data: { discountList: [{ discountId: '1', discountName: '直减10元', discountDesc: '拼团直减10元', discountType: 1, marketPlan: 'ZJ', marketExpr: '10', status: 0 }] }
   }),
+  createAdminDiscount: vi.fn(),
+  updateAdminDiscount: vi.fn(),
+  updateAdminDiscountStatus: vi.fn(),
   queryAdminTags: vi.fn().mockResolvedValue({
     code: '0000',
     info: 'success',
@@ -36,6 +40,7 @@ describe('AdminDiscountsPage', () => {
     expect(wrapper.text()).toContain('MJ')
     expect(wrapper.text()).toContain('N')
     expect(wrapper.text()).toContain('ZK')
-    expect(wrapper.text()).toContain('新人 - T001')
+    expect(wrapper.text()).not.toContain('新人 - T001')
+    expect(queryAdminTags).not.toHaveBeenCalled()
   })
 })

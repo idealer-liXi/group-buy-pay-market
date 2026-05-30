@@ -14,6 +14,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 @Slf4j
@@ -50,7 +51,13 @@ public class TradeTaskService implements ITradeTaskService {
         int successCount = 0, errorCount = 0, retryCount = 0;
         for (NotifyTaskEntity notifyTaskEntity : notifyTaskEntityList) {
             //进行回调执行，获得任务执行结果
-            String response = port.groupBuyNotify(notifyTaskEntity);
+            String response;
+            try {
+                response = port.groupBuyNotify(notifyTaskEntity);
+            } catch (Exception e) {
+                log.error("拼团交易-执行回调通知异常 notifyTaskEntity:{}", JSON.toJSONString(notifyTaskEntity), e);
+                response = NotifyTaskHTTPEnumVO.ERROR.getCode();
+            }
 
             if(NotifyTaskHTTPEnumVO.SUCCESS.getCode().equals(response)){
                 //任务执行成功，更新数据库状态
@@ -58,9 +65,9 @@ public class TradeTaskService implements ITradeTaskService {
                 if(updateCount == 1){
                     successCount += 1;
                 }
-            }else if (NotifyTaskHTTPEnumVO.ERROR.getCode().equals(response)){
+            }else if (Objects.equals(NotifyTaskHTTPEnumVO.ERROR.getCode(), response)){
                 //回调次数 > 5 更新回调任务状态为失败
-                if(notifyTaskEntity.getNotifyCount() > 5){
+                if(null != notifyTaskEntity.getNotifyCount() && notifyTaskEntity.getNotifyCount() > 5){
                     int updateCount = repository.updateNotifyTaskStatusError(notifyTaskEntity);
                     if(updateCount == 1){
                         errorCount += 1;

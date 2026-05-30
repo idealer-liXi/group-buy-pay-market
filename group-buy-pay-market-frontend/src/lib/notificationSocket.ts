@@ -12,9 +12,7 @@ export function openNotificationSocket(
   socket.onmessage = (event) => {
     try {
       const message = JSON.parse(event.data) as UserNotificationMessage
-      if (message.type === 'GROUP_SUCCESS') {
-        onMessage(message)
-      }
+      onMessage(message)
     } catch {
       // Ignore malformed notification payloads.
     }

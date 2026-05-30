@@ -12,7 +12,9 @@ import cn.idealer01.infrastructure.dao.po.GroupBuyActivity;
 import cn.idealer01.infrastructure.dao.po.GroupBuyDiscount;
 import cn.idealer01.infrastructure.dao.po.SCSkuActivity;
 import cn.idealer01.types.enums.ResponseCode;
+import cn.idealer01.infrastructure.redis.IRedisService;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,12 +38,19 @@ public class AdminActivityController {
     private final ISkuDao skuDao;
     private final IGroupBuyDiscountDao discountDao;
     private final ISCSkuActivityDao scSkuActivityDao;
+    private final IRedisService redisService;
 
     public AdminActivityController(IGroupBuyActivityDao activityDao, ISkuDao skuDao, IGroupBuyDiscountDao discountDao, ISCSkuActivityDao scSkuActivityDao) {
+        this(activityDao, skuDao, discountDao, scSkuActivityDao, null);
+    }
+
+    @Autowired
+    public AdminActivityController(IGroupBuyActivityDao activityDao, ISkuDao skuDao, IGroupBuyDiscountDao discountDao, ISCSkuActivityDao scSkuActivityDao, IRedisService redisService) {
         this.activityDao = activityDao;
         this.skuDao = skuDao;
         this.discountDao = discountDao;
         this.scSkuActivityDao = scSkuActivityDao;
+        this.redisService = redisService;
     }
 
     @GetMapping
@@ -96,14 +105,15 @@ public class AdminActivityController {
             return goodsValidation;
         }
 
-        Long activityId = request.getActivityId() == null
+        Long requestedActivityId = request.getActivityId();
+        Long activityId = requestedActivityId == null || requestedActivityId <= 0
                 ? activityDao.queryGroupBuyActivityList().stream()
                 .map(GroupBuyActivity::getActivityId)
                 .filter(Objects::nonNull)
                 .mapToLong(Long::longValue)
                 .max()
                 .orElse(100000L) + 1
-                : request.getActivityId();
+                : requestedActivityId;
 
         activityDao.insertGroupBuyActivity(GroupBuyActivity.builder()
                 .activityId(activityId)
@@ -127,11 +137,6 @@ public class AdminActivityController {
 
     @PutMapping("/{activityId}")
     public Response<Void> updateActivity(@PathVariable Long activityId, @RequestBody AdminActivityUpsertRequestDTO request) {
-        GroupBuyActivity current = activityDao.queryGroupBuyActivityByActivityId(activityId);
-        if (current != null && current.getStatus() != null && current.getStatus() == 1) {
-            return Response.<Void>builder().code(ResponseCode.ILLEGAL_PARAMETER.getCode()).info("已生效活动不可修改绑定关系").build();
-        }
-
         if (request == null || request.getStartTime() == null || request.getEndTime() == null
                 || request.getStartTime().compareTo(request.getEndTime()) >= 0
                 || request.getTarget() == null || request.getTarget() < 2
@@ -165,12 +170,9 @@ public class AdminActivityController {
                 .tagScope(request.getTagScope())
                 .build());
 
-        if (goodsIds.size() == 1) {
-            scSkuActivityDao.updateSCSkuActivityByActivityId(activityId, goodsIds.get(0), "s01", "c01");
-        } else {
-            scSkuActivityDao.deleteSCSkuActivityByActivityId(activityId);
-            insertGoodsBindings(activityId, goodsIds);
-        }
+        scSkuActivityDao.deleteSCSkuActivityByActivityId(activityId);
+        insertGoodsBindings(activityId, goodsIds);
+        evictActivityCache(activityId);
 
         return Response.<Void>builder().code(ResponseCode.SUCCESS.getCode()).info(ResponseCode.SUCCESS.getInfo()).build();
     }
@@ -178,7 +180,14 @@ public class AdminActivityController {
     @PutMapping("/{activityId}/status")
     public Response<Void> updateStatus(@PathVariable Long activityId, @RequestBody AdminStatusUpdateRequestDTO request) {
         activityDao.updateGroupBuyActivityStatus(activityId, request.getStatus());
+        evictActivityCache(activityId);
         return Response.<Void>builder().code(ResponseCode.SUCCESS.getCode()).info(ResponseCode.SUCCESS.getInfo()).build();
+    }
+
+    private void evictActivityCache(Long activityId) {
+        if (redisService != null && activityId != null) {
+            redisService.remove(GroupBuyActivity.cacheRedisKey(activityId));
+        }
     }
 
     private List<String> parseGoodsIds(String goodsId) {

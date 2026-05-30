@@ -60,9 +60,8 @@ public class TradePort implements ITradePort {
             //没有抢到锁，任务已经被其他线程执行
             return NotifyTaskHTTPEnumVO.NULL.getCode();
         }catch (Exception e){
-            //出现异常，打断当前进程
-            Thread.currentThread().interrupt();
-            return NotifyTaskHTTPEnumVO.NULL.getCode();
+            log.error("回调通知任务执行失败 notifyTask:{}", notifyTask, e);
+            return NotifyTaskHTTPEnumVO.ERROR.getCode();
         }
 
     }

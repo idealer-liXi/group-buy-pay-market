@@ -35,20 +35,16 @@ public abstract class AbstactOrderService implements IOrderService{
         // 1. 查询当前用户是否存在掉单和未支付订单
         OrderEntity unpaidOrderEntity = repository.queryUnPayOrder(shopCartEntity);
         Integer requestedMarketType = null == shopCartEntity.getMarketTypeVO() ? null : shopCartEntity.getMarketTypeVO().getCode();
-        if (null != unpaidOrderEntity && null != requestedMarketType && !Objects.equals(unpaidOrderEntity.getMarketType(), requestedMarketType)) {
-            log.info("创建订单-忽略不同营销类型未支付订单。userId:{} productId:{} orderId:{} requestedMarketType:{} existedMarketType:{}",
-                    shopCartEntity.getUserId(), shopCartEntity.getProductId(), unpaidOrderEntity.getOrderId(), requestedMarketType, unpaidOrderEntity.getMarketType());
-            unpaidOrderEntity = null;
-        }
 
-        if (null != unpaidOrderEntity && OrderStatusVO.PAY_WAIT.equals(unpaidOrderEntity.getOrderStatusVO())) {
+        if (null != unpaidOrderEntity && OrderStatusVO.PAY_WAIT.equals(unpaidOrderEntity.getOrderStatusVO()) && isSameMarketType(requestedMarketType, unpaidOrderEntity.getMarketType())) {
             log.info("创建订单-存在，已存在未支付订单。userId:{} productId:{} orderId:{}", shopCartEntity.getUserId(), shopCartEntity.getProductId(), unpaidOrderEntity.getOrderId());
             //当前订单已经在数据库创建，并且已经在支付宝生成收款单，直接返回
             return PayOrderEntity.builder()
                     .orderId(unpaidOrderEntity.getOrderId())
                     .payUrl(unpaidOrderEntity.getPayUrl())
+                    .reusedPayOrder(true)
                     .build();
-        } else if (null != unpaidOrderEntity && OrderStatusVO.CREATE.equals(unpaidOrderEntity.getOrderStatusVO())) {
+        } else if (null != unpaidOrderEntity && OrderStatusVO.CREATE.equals(unpaidOrderEntity.getOrderStatusVO()) && isSameMarketType(requestedMarketType, unpaidOrderEntity.getMarketType())) {
             log.info("创建订单-存在，存在未创建支付单，userId:{} productId:{} orderId:{}", shopCartEntity.getUserId(), shopCartEntity.getProductId(), unpaidOrderEntity.getOrderId());
             //当前订单已经在数据库创建，但是掉单，即未在支付宝生成收款码
             //重新获取支付宝付款页面
@@ -77,6 +73,7 @@ public abstract class AbstactOrderService implements IOrderService{
             return PayOrderEntity.builder()
                     .orderId(payOrderEntity.getOrderId())
                     .payUrl(payOrderEntity.getPayUrl())
+                    .reusedPayOrder(false)
                     .build();
         }
 
@@ -91,9 +88,6 @@ public abstract class AbstactOrderService implements IOrderService{
                 .orderEntity(orderEntity)
                 .build();
 
-        //把订单保存到数据库
-        this.doSaveOrder(orderAggregate);
-
         //发起营销锁单
         MarketPayDiscountEntity marketPayDiscountEntity = null;
         if(MarketTypeVO.GROUP_BUY_MARKET.equals(shopCartEntity.getMarketTypeVO())){
@@ -102,7 +96,13 @@ public abstract class AbstactOrderService implements IOrderService{
                     shopCartEntity.getActivityId(),
                     shopCartEntity.getProductId(),
                     orderEntity.getOrderId());
+            if (marketPayDiscountEntity == null) {
+                throw new IllegalStateException("拼团营销锁单失败");
+            }
         }
+
+        // 拼团锁单成功后再保存支付订单，避免锁单失败时在购物记录残留原价订单。
+        this.doSaveOrder(orderAggregate);
 
         //创建支付订单
         PayOrderEntity payOrderEntity = doPrepayOrder(shopCartEntity.getUserId(),
@@ -117,6 +117,7 @@ public abstract class AbstactOrderService implements IOrderService{
         return PayOrderEntity.builder()
                 .orderId(orderEntity.getOrderId())
                 .payUrl(payOrderEntity.getPayUrl())
+                .reusedPayOrder(false)
                 .build();
     }
 
@@ -127,4 +128,10 @@ public abstract class AbstactOrderService implements IOrderService{
     protected abstract PayOrderEntity doPrepayOrder(String userId, String productId, String productName, String orderId, BigDecimal totalAmount) throws AlipayApiException;
 
     protected abstract void doSaveOrder(CreateOrderAggregate orderAggregate);
+
+    private boolean isSameMarketType(Integer requestedMarketType, Integer existingMarketType) {
+        Integer requested = requestedMarketType == null ? MarketTypeVO.NO_MARKET.getCode() : requestedMarketType;
+        Integer existing = existingMarketType == null ? MarketTypeVO.NO_MARKET.getCode() : existingMarketType;
+        return Objects.equals(requested, existing);
+    }
 }

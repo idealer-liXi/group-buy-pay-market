@@ -7,7 +7,7 @@ vi.mock('../../lib/admin', () => ({
   queryAdminActivities: vi.fn().mockResolvedValue({
     code: '0000',
     info: 'success',
-    data: { activityList: [{ activityId: 100123, activityName: '拼团读书节', goodsId: '9890001', discountId: '1', groupType: 1, takeLimitCount: 1, target: 3, validTime: 15, status: 1, startTime: '2025-01-01T00:00', endTime: '2026-12-31T23:59' }] }
+    data: { activityList: [{ activityId: 100123, activityName: '拼团读书节', goodsId: '9890001', discountId: '1', groupType: 1, takeLimitCount: 1, target: 3, validTime: 15, status: 1, startTime: '2025-01-01T00:00:00.000+08:00', endTime: '2026-12-31T23:59:59.000+08:00', tagId: 'T001', tagScope: '2' }] }
   }),
   queryAdminGoods: vi.fn().mockResolvedValue({
     code: '0000',
@@ -50,6 +50,8 @@ describe('AdminActivitiesPage', () => {
     expect(wrapper.text()).not.toContain('9890001 - 读书卡')
     expect(wrapper.text()).toContain('9890002 - 咖啡卡')
     expect(wrapper.text()).toContain('1 - 直减10元')
+    expect(wrapper.text()).toContain('自动成团')
+    expect(wrapper.text()).toContain('达成目标拼团')
     expect(wrapper.text()).toContain('新人 - T001')
     expect(wrapper.find('input[placeholder="开始时间"]').exists()).toBe(true)
     expect(wrapper.find('input[placeholder="结束时间"]').exists()).toBe(true)
@@ -73,6 +75,25 @@ describe('AdminActivitiesPage', () => {
 
     expect(wrapper.text()).toContain('9890001 - 读书卡')
     expect(wrapper.text()).toContain('9890002 - 咖啡卡')
+  })
+
+  it('fills edit form with backend time and tag fields', async () => {
+    const wrapper = mount(AdminActivitiesPage, {
+      global: {
+        stubs: {
+          AdminLayout: { template: '<div><slot /></div>' }
+        }
+      }
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const editButton = wrapper.findAll('button').find((button) => button.text() === '编辑')
+    await editButton!.trigger('click')
+
+    expect((wrapper.find('input[placeholder="开始时间"]').element as HTMLInputElement).value).toBe('2025-01-01T00:00')
+    expect((wrapper.find('input[placeholder="结束时间"]').element as HTMLInputElement).value).toBe('2026-12-31T23:59')
+    expect((wrapper.findAll('select').at(2)!.element as HTMLSelectElement).value).toBe('T001')
+    expect((wrapper.findAll('select').at(3)!.element as HTMLSelectElement).value).toBe('2')
   })
 
   it('shows backend error when creating duplicate-bound goods activity', async () => {
@@ -112,10 +133,12 @@ describe('AdminActivitiesPage', () => {
     await wrapper.find('input[placeholder="请输入活动名称"]').setValue('多商品活动')
     await wrapper.find('input[type="checkbox"][value="9890002"]').setValue(true)
     await wrapper.find('select:not([multiple])').setValue('1')
+    await wrapper.find('select[aria-label="拼团类型"]').setValue('0')
     await wrapper.find('input[placeholder="开始时间"]').setValue('2026-05-26T10:00')
     await wrapper.find('input[placeholder="结束时间"]').setValue('2026-05-26T11:00')
     await wrapper.find('form').trigger('submit.prevent')
 
-    expect(createAdminActivity).toHaveBeenCalledWith(expect.objectContaining({ goodsId: '9890002', discountId: '1' }))
+    expect(createAdminActivity).toHaveBeenCalledWith(expect.objectContaining({ goodsId: '9890002', discountId: '1', groupType: 0 }))
+    expect(createAdminActivity).toHaveBeenCalledWith(expect.not.objectContaining({ activityId: 0 }))
   })
 })

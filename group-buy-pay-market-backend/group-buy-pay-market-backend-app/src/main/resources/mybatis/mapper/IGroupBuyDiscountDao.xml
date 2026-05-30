@@ -9,7 +9,6 @@
         <result column="discount_type" property="discountType"/>
         <result column="market_plan" property="marketPlan"/>
         <result column="market_expr" property="marketExpr"/>
-        <result column="tag_id" property="tagId"/>
         <result column="status" property="status"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
@@ -18,14 +17,14 @@
         select * from group_buy_discount
     </select>
     <select id="queryGroupBuyActivityDiscountByDiscountId" parameterType="java.lang.String" resultMap="dataMap">
-        select discount_id, discount_name, discount_desc, discount_type, market_plan, market_expr, tag_id, status
+        select discount_id, discount_name, discount_desc, discount_type, market_plan, market_expr, status
         from group_buy_discount
         where discount_id = #{discountId}
     </select>
 
     <insert id="insertGroupBuyDiscount" parameterType="cn.idealer01.infrastructure.dao.po.GroupBuyDiscount">
-        insert into group_buy_discount(discount_id, discount_name, discount_desc, discount_type, market_plan, market_expr, tag_id, status)
-        values(#{discountId}, #{discountName}, #{discountDesc}, #{discountType}, #{marketPlan}, #{marketExpr}, #{tagId}, #{status})
+        insert into group_buy_discount(discount_id, discount_name, discount_desc, discount_type, market_plan, market_expr, status)
+        values(#{discountId}, #{discountName}, #{discountDesc}, #{discountType}, #{marketPlan}, #{marketExpr}, #{status})
     </insert>
 
     <update id="updateGroupBuyDiscount" parameterType="cn.idealer01.infrastructure.dao.po.GroupBuyDiscount">
@@ -35,7 +34,6 @@
             discount_type = #{discountType},
             market_plan = #{marketPlan},
             market_expr = #{marketExpr},
-            tag_id = #{tagId},
             update_time = now()
         where discount_id = #{discountId}
     </update>

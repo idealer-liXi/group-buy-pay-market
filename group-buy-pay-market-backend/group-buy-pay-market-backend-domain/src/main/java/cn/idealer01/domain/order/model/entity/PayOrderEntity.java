@@ -22,6 +22,7 @@ public class PayOrderEntity {
     private String userId;
     private String orderId;
     private String payUrl;
+    private Boolean reusedPayOrder;
     private OrderStatusVO orderStatus;
     // 营销类型；0无营销、1拼团营销
     private Integer marketType;

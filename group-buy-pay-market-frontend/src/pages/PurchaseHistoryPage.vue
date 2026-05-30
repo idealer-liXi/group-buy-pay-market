@@ -18,8 +18,6 @@
       </button>
     </div>
 
-    <div v-if="notice" class="notice">{{ notice }}</div>
-
     <div v-if="loading" class="state">加载中...</div>
     <div v-else-if="error" class="state error">{{ error }}</div>
     <div v-else-if="filteredRecords.length === 0" class="state">暂无购物记录</div>
@@ -48,13 +46,11 @@
           <button class="continue-pay-btn" :disabled="!record.payUrl" @click="continuePay(record)">
             继续支付
           </button>
-        </div>
-        <div v-if="canRefund(record) && record.statusType !== 'WAIT_PAY'" class="record-actions">
-          <button class="refund-btn" :disabled="refundingOrderId === record.orderId || !record.outTradeNo" @click="refund(record)">
-            {{ refundingOrderId === record.orderId ? '退单中...' : '退单' }}
+          <button class="refund-btn" :disabled="isOrderActionPending(record)" @click="cancelUnpaid(record)">
+            {{ isOrderActionPending(record) ? '退单中...' : '退单' }}
           </button>
         </div>
-        <div v-if="canRefund(record) && record.statusType === 'WAIT_PAY'" class="record-actions secondary-actions">
+        <div v-if="canRefund(record) && record.statusType !== 'WAIT_PAY'" class="record-actions">
           <button class="refund-btn" :disabled="refundingOrderId === record.orderId || !record.outTradeNo" @click="refund(record)">
             {{ refundingOrderId === record.orderId ? '退单中...' : '退单' }}
           </button>
@@ -68,8 +64,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getCookie } from '../lib/cookie'
-import { openNotificationSocket } from '../lib/notificationSocket'
-import { queryPurchaseHistory, refundMarketPayOrder } from '../lib/order'
+import { cancelOrder, queryPurchaseHistory, refundMarketPayOrder, refundPaidOrder } from '../lib/order'
 import { injectPayFormHtml } from '../lib/pay'
 import type { PurchaseRecord } from '../types/api'
 
@@ -79,10 +74,10 @@ const router = useRouter()
 const records = ref<PurchaseRecord[]>([])
 const loading = ref(true)
 const error = ref('')
-const notice = ref('')
 const activeFilter = ref<FilterType>('ALL')
 const refundingOrderId = ref('')
-let notificationSocket: WebSocket | null = null
+const cancellingOrderId = ref('')
+const currentUserId = ref('')
 
 const filters: Array<{ value: FilterType; label: string }> = [
   { value: 'ALL', label: '全部' },
@@ -105,15 +100,9 @@ onMounted(async () => {
     await router.replace('/login')
     return
   }
+  currentUserId.value = loginToken
 
-  try {
-    notificationSocket = openNotificationSocket(loginToken, async (message) => {
-      notice.value = message.message || '拼团已完成'
-      await loadRecords(loginToken)
-    })
-  } catch {
-    // WebSocket is only a real-time enhancement; history loading must still work.
-  }
+  window.addEventListener('gbpm:user-notification', handleUserNotification as EventListener)
 
   try {
     await loadRecords(loginToken)
@@ -125,9 +114,14 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  notificationSocket?.close()
-  notificationSocket = null
+  window.removeEventListener('gbpm:user-notification', handleUserNotification as EventListener)
 })
+
+async function handleUserNotification() {
+  if (currentUserId.value) {
+    await loadRecords(currentUserId.value)
+  }
+}
 
 async function loadRecords(userId: string) {
   const result = await queryPurchaseHistory(userId)
@@ -160,13 +154,50 @@ function continuePay(record: PurchaseRecord) {
     return
   }
 
-  injectPayFormHtml(record.payUrl)
-  const form = document.querySelector('form') as HTMLFormElement | null
-  form?.submit()
+  injectPayFormHtml(record.payUrl)?.submit()
 }
 
 function canRefund(record: PurchaseRecord) {
-  return record.purchaseType === 'GROUP_BUY' && record.statusType !== 'CLOSED'
+  return record.statusType !== 'CLOSED' && (record.purchaseType === 'GROUP_BUY' || isPaidPlainOrder(record))
+}
+
+function isPaidPlainOrder(record: PurchaseRecord) {
+  return record.purchaseType === 'PLAIN' && record.statusType === 'GROUP_SUCCESS' && ['PAY_SUCCESS', 'DEAL_DONE'].includes(record.status)
+}
+
+function isOrderActionPending(record: PurchaseRecord) {
+  return refundingOrderId.value === record.orderId || cancellingOrderId.value === record.orderId
+}
+
+async function cancelUnpaid(record: PurchaseRecord) {
+  if (record.purchaseType === 'GROUP_BUY') {
+    await refund(record)
+    return
+  }
+
+  await cancelPlainOrder(record)
+}
+
+async function cancelPlainOrder(record: PurchaseRecord) {
+  const loginToken = getCookie('loginToken')
+  if (!loginToken) {
+    return
+  }
+
+  cancellingOrderId.value = record.orderId
+  try {
+    const result = await cancelOrder({
+      userId: loginToken,
+      orderId: record.orderId
+    })
+    if (result.code === '0000') {
+      await loadRecords(loginToken)
+    }
+  } catch {
+    // 页面内通知已移除，订单状态变化由全局通知展示。
+  } finally {
+    cancellingOrderId.value = ''
+  }
 }
 
 async function refund(record: PurchaseRecord) {
@@ -175,8 +206,12 @@ async function refund(record: PurchaseRecord) {
     return
   }
 
+  if (isPaidPlainOrder(record)) {
+    await refundPaidPlainOrder(record, loginToken)
+    return
+  }
+
   refundingOrderId.value = record.orderId
-  notice.value = ''
   try {
     const result = await refundMarketPayOrder({
       userId: loginToken,
@@ -184,12 +219,28 @@ async function refund(record: PurchaseRecord) {
       source: 's01',
       channel: 'c01'
     })
-    notice.value = result.data?.info || result.info || '退单已提交'
     if (result.code === '0000') {
       await loadRecords(loginToken)
     }
   } catch {
-    notice.value = '退单失败，请稍后重试'
+    // 页面内通知已移除，订单状态变化由全局通知展示。
+  } finally {
+    refundingOrderId.value = ''
+  }
+}
+
+async function refundPaidPlainOrder(record: PurchaseRecord, loginToken: string) {
+  refundingOrderId.value = record.orderId
+  try {
+    const result = await refundPaidOrder({
+      userId: loginToken,
+      orderId: record.orderId
+    })
+    if (result.code === '0000') {
+      await loadRecords(loginToken)
+    }
+  } catch {
+    // 页面内通知已移除，订单状态变化由全局通知展示。
   } finally {
     refundingOrderId.value = ''
   }
@@ -254,14 +305,6 @@ async function refund(record: PurchaseRecord) {
   text-align: center;
   padding: 56px 0;
   color: #6b7280;
-}
-
-.notice {
-  border-radius: 10px;
-  background: #ecfdf5;
-  color: #047857;
-  padding: 10px 12px;
-  margin-bottom: 14px;
 }
 
 .state.error {
@@ -349,6 +392,7 @@ async function refund(record: PurchaseRecord) {
 .record-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 10px;
   margin-top: 14px;
 }
 
@@ -365,10 +409,6 @@ async function refund(record: PurchaseRecord) {
 .continue-pay-btn:disabled {
   background: #9ca3af;
   cursor: not-allowed;
-}
-
-.secondary-actions {
-  margin-top: 8px;
 }
 
 .refund-btn {

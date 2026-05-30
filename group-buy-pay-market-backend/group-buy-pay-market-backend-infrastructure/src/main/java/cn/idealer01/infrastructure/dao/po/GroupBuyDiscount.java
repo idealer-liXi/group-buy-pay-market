@@ -35,7 +35,7 @@ public class GroupBuyDiscount {
     private String discountDesc;
 
     /**
-     * 折扣类型（0:base、1:tag）
+     * 折扣类型
      */
     private Integer discountType;
 
@@ -48,11 +48,6 @@ public class GroupBuyDiscount {
      * 营销优惠表达式
      */
     private String marketExpr;
-
-    /**
-     * 人群标签，特定优惠限定
-     */
-    private String tagId;
 
     /**
      * 状态 0启用 1停用

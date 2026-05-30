@@ -160,7 +160,6 @@ CREATE TABLE `group_buy_discount` (
   `discount_type` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Discount Type',
   `market_plan` varchar(4) NOT NULL DEFAULT 'ZJ' COMMENT 'Market Plan',
   `market_expr` varchar(32) NOT NULL COMMENT 'Market Expr',
-  `tag_id` varchar(8) DEFAULT NULL COMMENT 'Tag ID',
   `status` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Discount Status',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Create Time',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Update Time',

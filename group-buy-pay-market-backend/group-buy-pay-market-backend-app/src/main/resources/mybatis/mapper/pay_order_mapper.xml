@@ -38,9 +38,7 @@
         select product_id, product_name, order_id, order_time, total_amount, status, pay_url, market_type, market_deduction_amount, pay_amount
         from pay_order
         where user_id = #{userId} and product_id = #{productId}
-        <if test="marketType != null">
-            and market_type = #{marketType}
-        </if>
+          and status = 'PAY_WAIT'
         order by id desc
         limit 1
     </select>
@@ -79,6 +77,11 @@
             LIMIT 10
     </select>
     <select id="queryOrderByOrderId" parameterType="java.lang.String" resultMap="dataMap">
+        select user_id, product_id, product_name, order_id, order_time, total_amount, status, pay_url, market_type, market_deduction_amount, pay_amount
+        from pay_order
+        where order_id = #{orderId} and status = 'PAY_WAIT'
+    </select>
+    <select id="queryPayOrderByOrderId" parameterType="java.lang.String" resultMap="dataMap">
         select user_id, product_id, product_name, order_id, order_time, total_amount, status, pay_url, market_type, market_deduction_amount, pay_amount
         from pay_order
         where order_id = #{orderId}

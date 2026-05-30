@@ -40,7 +40,10 @@
             </div>
             <div class="field">
               <label>拼团类型</label>
-              <input v-model.number="form.groupType" type="number" min="0" placeholder="拼团类型" />
+              <select v-model.number="form.groupType" aria-label="拼团类型">
+                <option :value="0">自动成团</option>
+                <option :value="1">达成目标拼团</option>
+              </select>
             </div>
             <div class="field">
               <label>参与次数限制</label>
@@ -163,6 +166,13 @@ function splitGoodsIds(goodsId: string) {
   return goodsId.split(',').map((item) => item.trim()).filter(Boolean)
 }
 
+function toDateTimeLocalValue(value: string) {
+  if (!value) {
+    return ''
+  }
+  return value.replace(' ', 'T').slice(0, 16)
+}
+
 async function loadActivities() {
   const result = await queryAdminActivities()
   if (result.code === '0000') {
@@ -196,8 +206,8 @@ function editActivity(item: AdminActivityItem) {
     takeLimitCount: item.takeLimitCount,
     target: item.target,
     validTime: item.validTime,
-    startTime: item.startTime,
-    endTime: item.endTime,
+    startTime: toDateTimeLocalValue(item.startTime),
+    endTime: toDateTimeLocalValue(item.endTime),
     tagId: item.tagId ?? '',
     tagScope: item.tagScope ?? ''
   }
@@ -212,10 +222,14 @@ function cancelEdit() {
 async function submitActivity() {
   error.value = ''
   form.value.goodsId = selectedGoodsIds.value.join(',')
+  const payload = { ...form.value }
+  if (!editing.value) {
+    delete (payload as Partial<typeof form.value>).activityId
+  }
 
   const result = editing.value
-    ? await updateAdminActivity(form.value.activityId, form.value)
-    : await createAdminActivity(form.value)
+    ? await updateAdminActivity(form.value.activityId, payload)
+    : await createAdminActivity(payload)
 
   if (result.code !== '0000') {
     error.value = result.info || '保存活动失败'

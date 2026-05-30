@@ -32,11 +32,11 @@ public class TimeoutRefundJob {
         try{
             boolean isLocked = lock.tryLock(3, 60, TimeUnit.SECONDS);
             if (!isLocked) {
-                log.info("超时退单定时任务，获取锁失败，跳过本次执行");
+                log.debug("超时退单定时任务，获取锁失败，跳过本次执行");
                 return;
             }
 
-            log.info("超时退单定时任务开始执行");
+            log.debug("超时退单定时任务开始执行");
 
             List<UserGroupBuyOrderDetailEntity> timeoutOrderList = new ArrayList<>();
             List<UserGroupBuyOrderDetailEntity> timeoutUnpaidOrderList = tradeRefundOrderService.queryTimeoutUnpaidOrderList();
@@ -48,7 +48,7 @@ public class TimeoutRefundJob {
                 timeoutOrderList.addAll(timeoutPaidUnformedOrderList);
             }
             if(timeoutOrderList.isEmpty()){
-                log.info("超时退单定时任务，未发现超时订单");
+                log.debug("超时退单定时任务，未发现超时订单");
                 return;
             }
 
@@ -72,7 +72,7 @@ public class TimeoutRefundJob {
                     tradeRefundOrderService.refundOrder(tradeRefundCommandEntity);
                     successCount ++;
 
-                    log.info("超时订单退单成功，用户ID：{}，交易单号：{}", orderDetail.getUserId(), orderDetail.getOutTradeNo());
+                    log.debug("超时订单退单成功，用户ID：{}，交易单号：{}", orderDetail.getUserId(), orderDetail.getOutTradeNo());
                 }catch (Exception e){
                     failCount ++;
                     log.error("超时订单退单失败，用户ID：{}，交易单号：{}，错误信息：{}",

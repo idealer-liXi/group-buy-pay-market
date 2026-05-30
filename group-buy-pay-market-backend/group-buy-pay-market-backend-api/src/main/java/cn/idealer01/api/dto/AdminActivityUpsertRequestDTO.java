@@ -1,5 +1,6 @@
 package cn.idealer01.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -20,7 +21,9 @@ public class AdminActivityUpsertRequestDTO {
     private Integer takeLimitCount;
     private Integer target;
     private Integer validTime;
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm", timezone = "Asia/Shanghai")
     private Date startTime;
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm", timezone = "Asia/Shanghai")
     private Date endTime;
     private String tagId;
     private String tagScope;

@@ -22,9 +22,11 @@ public interface IOrderDao {
 
     List<String> queryTimeoutCloseOrderList();
 
-    boolean changeOrderClose();
+    boolean changeOrderClose(@Param("orderId") String orderId);
 
     PayOrder queryOrderByOrderId(String orderId);
+
+    PayOrder queryPayOrderByOrderId(String orderId);
 
     List<PayOrder> queryPayOrderListByUserId(String userId);
 

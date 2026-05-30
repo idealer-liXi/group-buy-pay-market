@@ -23,6 +23,8 @@ public class GoodsMarketResponseDTO {
     private List<Team> teamList;
     //组队统计
     private TeamStatistic teamStatistic;
+    //活动信息
+    private Activity activity;
     // 拼团活动是否对当前用户可见
     private Boolean isVisible;
     // 当前用户是否可参与拼团
@@ -50,6 +52,21 @@ public class GoodsMarketResponseDTO {
         private String coverImageUrl;
         // 商品图片列表
         private List<String> imageUrls;
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class Activity {
+        private Long activityId;
+        private String activityName;
+        private Integer groupType;
+        private Integer target;
+        private Integer validTime;
+        private String tagId;
+        private String tagName;
+        private String tagScope;
     }
 
     /**
